@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dream Factory</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Bitter&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Planet divs -->
+<div id="planet-1" style="display:none;"><h2>Chamados.</h2><p>Texto aqui.</p></div>
+<div id="planet-2" style="display:none;"><h2>Segurança.</h2><p>Texto aqui.</p></div>
+<div id="planet-3" style="display:none;"><h2>Boas Praticas.</h2><p>Texto aqui.</p></div>
+<div id="planet-4" style="display:none;"><h2>Equipamentos.</h2><p>Texto aqui.</p></div>
+<div id="planet-5" style="display:none;"><h2>Acesso ao Escritório.</h2><p>Texto aqui.</p></div>
+
+<div id="tooltip"></div>
+<div id="tipping"></div>
+
+<button id="reset-orbit">Zerar Órbita</button>
+
+<footer>
+  © 2025 Criado no Laboratório de Tecnologia da Dream Factory - Todos os direitos reservados
+</footer>
+
+<div id="loading"></div>
+
+<script type="importmap">{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}</script>
+<script type="module" src="universo.js"></script>
+</body>
+</html>
