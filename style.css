@@ -1,26 +1,74 @@
-body { margin:0; overflow:hidden; cursor:default; background:black; }
+body { 
+  margin:0; 
+  overflow:hidden; 
+  cursor:default; 
+  background:black; 
+}
 
+
+
+
+/* Quando abre */
+.planet-panel.open {
+  transform: translate(-50%, 0);
+}
+
+/* Botão fechar interno */
+.planet-panel button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border: 1px solid #0088ff;
+  background: #222;
+  color: #0088ff;
+  border-radius: 4px;
+  font-family: 'Brown', serif;
+}
+
+/* Footer SEMPRE na frente */
+footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #0088ff;
+  color: #000000;
+  text-align: center;
+  padding: 3px 0;
+  font-family: 'Brown', serif;
+  font-size: 12px;
+  z-index: 200; /* Aumentei para garantir que fique acima do painel */
+}
+
+/* Painel trazido para trás do footer */
 .planet-panel {
   position: fixed;
-  top:0; right:0;
-  width:35%; height:100vh;
-  background: rgba(0, 0, 0, 0.8);
-  transform:translateX(100%);
+  left: 50%;                 
+  bottom: 0;
+  transform: translate(-50%, 100%);
+  width: 70vw;              
+  max-width: 900px;
+  height: 95vh;            
+  background: rgba(0, 0, 0, 0.70);
+  border-color: #0088ff 8px solid;
+  border: 1px solid #0088ff;
+
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
   transition: transform 0.5s ease;
-  z-index:10;
-  padding:20px;
-  box-sizing:border-box;
-  color:#fff;
+  z-index: 100;   /* Menor que o footer! */
+  padding: 20px;
+  box-sizing: border-box;
+  color: #fff;
   font-family: 'Brown', serif;
-}
-.planet-panel.open { transform:translateX(0%); }
-.planet-panel button {
-  margin-bottom:20px; padding:8px 16px;
-  cursor:pointer; background:#222; color:#0088ff;
-  border:none; border-radius:4px;
-  font-family: 'Brown', serif;
+  overflow-y: auto;
 }
 
+
+
+/* Tooltip */
 #tipping {
   position:absolute;
   padding:2px 8px;
@@ -38,13 +86,14 @@ body { margin:0; overflow:hidden; cursor:default; background:black; }
   z-index:30;
 }
 
+/* Botão reset */
 #reset-orbit {
   margin-bottom:20px;
   padding:8px 16px;
   cursor:pointer;
   background:#222;
   color:#0088ff;
-  border:none;
+  border: 1px solid #0088ff;
   border-radius:4px;
   font-family: 'Brown', serif;
   position: fixed;
@@ -53,6 +102,39 @@ body { margin:0; overflow:hidden; cursor:default; background:black; }
   z-index:15;
 }
 
+/* Botão galaxia */
+#galaxia-btn {
+  position: fixed;
+  bottom: 40px; /* agora respeita o footer */
+  left: 25px;
+  width: 60px;
+  height: 60px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  z-index: 120;
+  padding: 0;
+
+  /* escondido até o fim do loading */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#galaxia-btn.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+#galaxia-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+#galaxia-btn img:hover {
+  transform: scale(2.15);
+}
 
 #loading {
   position: fixed; top:0; left:0;
@@ -64,18 +146,43 @@ body { margin:0; overflow:hidden; cursor:default; background:black; }
   transition: opacity 2s ease;
 }
 
+/* Footer */
 footer {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
   background: #0088ff;
-  color: #fff;
+  color: #000000;
   text-align: center;
   padding: 3px 0;
   font-family: 'Brown', serif;
   font-size: 12px;
-  z-index: 100;
+ 
 }
 
 canvas { display:block; }
+
+/* Responsivo */
+@media (max-width: 768px) {
+  .planet-panel {
+    width: 100%;
+    height: 100vh;
+    top: auto;
+    bottom: 0;
+    transform: translateY(100%);
+  }
+  .planet-panel.open { transform: translateY(0); }
+
+  #reset-orbit {
+    top: auto;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  footer {
+    font-size: 10px;
+    padding: 2px 0;
+  }
+}
