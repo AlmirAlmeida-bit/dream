@@ -1,8 +1,7 @@
-
-
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { STLLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/STLLoader.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+// universo.js
+import * as THREE from 'three';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /* ------------------ util: cria sprite circular ------------------ */
 function createCircleSprite(color = '#ffffff', size = 64) {
@@ -83,7 +82,6 @@ window.addEventListener('resize', ()=>{
 const scene = new THREE.Scene();
 const textureLoader = new THREE.TextureLoader();
 
-// textures (use seus caminhos)
 const planetTextures = [
   'IMGS/planet1.jpg',
   'IMGS/planet2.jpg',
@@ -99,27 +97,29 @@ const planetData = [{scale:0.9},{scale:0.75},{scale:0.85},{scale:0.95},{scale:1}
 
 for (let i=0;i<planetTextures.length;i++){
   const s = planetData[i].scale;
-  const size = (0.45 + Math.random()*0.6) * s; // variação de tamanho
+  const size = (0.45 + Math.random()*0.6) * s;
   const geometry = new THREE.SphereGeometry(size, 32, 32);
   const tex = textureLoader.load(planetTextures[i]);
   const material = new THREE.MeshPhongMaterial({ map: tex, shininess: 20 });
   const planet = new THREE.Mesh(geometry, material);
   planet.userData.index = i+1;
-  // distância radial (mantém diferenciação por índice)
   const baseDist = 8 + i*2;
   const adjustedRadius = baseDist * 0.8;
   planet.userData.radius = adjustedRadius;
+  planet.userData.originalRadius = adjustedRadius;
   planet.userData.angle  = Math.random()*Math.PI*2;
-  // cada planeta tem uma velocidade base distinta
   planet.userData.baseSpeed = 0.001 + i*0.0008;
   planet.userData.speed = planet.userData.baseSpeed;
   planet.userData.isHovered = false;
-  // pos inicial
-  planet.position.set(Math.cos(planet.userData.angle)*adjustedRadius, Math.sin(planet.userData.angle)*adjustedRadius*0.5, Math.sin(planet.userData.angle)*adjustedRadius*0.5);
+  planet.userData.originalScale = planet.scale.clone();
+  planet.position.set(
+    Math.cos(planet.userData.angle)*adjustedRadius,
+    Math.sin(planet.userData.angle)*adjustedRadius*0.5,
+    Math.sin(planet.userData.angle)*adjustedRadius*0.5
+  );
   scene.add(planet);
   planets.push(planet);
 
-  // opcional: anel para o último (como no seu código)
   if (i === planetTextures.length-1){
     const ringGeo = new THREE.RingGeometry(size*1.1, size*1.6, 32);
     const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
@@ -129,7 +129,7 @@ for (let i=0;i<planetTextures.length;i++){
   }
 }
 
-/* ----- estrelas principais (garantir visibilidade) ----- */
+/* ----- estrelas principais (fundo padrão) ----- */
 const mainStarCount = 6000;
 const starPositions = new Float32Array(mainStarCount*3);
 for (let i=0;i<mainStarCount;i++){
@@ -148,6 +148,7 @@ scene.add(starPoints);
 /* ------------------ renderer / camera / controls ------------------ */
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 10000);
 camera.position.set(0,0,20);
+const cameraOriginalZ = camera.position.z;
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -173,21 +174,27 @@ const loadingFadeDuration = 2000;
 let fadeStarted = false;
 let fadeStartTime = 0;
 
+// variáveis para responsividade
+let responsiveScaleFactor = 1;
+let pendingMeshScaleFactor = null;
+
 loaderSTL.load('IMGS/Trestech.stl', geometry=>{
-  try {
-    if (geometry.boundingBox === null) geometry.computeBoundingBox();
-    if (geometry.isBufferGeometry) geometry.center();
-  } catch(e) { /* ignore */ }
+  if (geometry.boundingBox === null) geometry.computeBoundingBox();
+  if (geometry.isBufferGeometry) geometry.center();
   meshMaterial = new THREE.MeshPhongMaterial({ color: 0x88ccff, shininess:100, transparent:true, opacity:0 });
   mesh = new THREE.Mesh(geometry, meshMaterial);
   mesh.scale.set(baseScale*1.5, baseScale*1.5, baseScale*1.5);
+  mesh.userData = { originalScale: mesh.scale.clone() };
   mesh.position.set(0,0,0);
   scene.add(mesh);
   meshLoaded = true;
   meshLoadedAt = performance.now();
+  if (pendingMeshScaleFactor !== null) {
+    mesh.scale.copy(mesh.userData.originalScale.clone().multiplyScalar(pendingMeshScaleFactor));
+    pendingMeshScaleFactor = null;
+  }
 }, undefined, err=>{
   console.error('Erro carregando STL:', err);
-  // fallback para não bloquear a UI
   setTimeout(()=> startLoadingFade(), 3000);
 });
 
@@ -199,7 +206,7 @@ window.addEventListener('mousemove', (e)=>{
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 
-/* painel lateral (mantive o comportamento existente) */
+/* painel lateral */
 const panel = document.createElement('div');
 panel.className = 'planet-panel';
 document.body.appendChild(panel);
@@ -218,15 +225,28 @@ const planetDivs = [
   document.getElementById('planet-5')
 ];
 
+/* ----- Conteúdo Biblioteca de Recursos (criado via JS) ----- */
+const libraryDiv = document.createElement('div');
+libraryDiv.id = 'library';
+libraryDiv.style.display = 'none';
+libraryDiv.innerHTML = `
+  <h2>Biblioteca de Recursos.</h2>
+  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur elit vitae augue vehicula cursus. Nam dignissim dolor ut velit bibendum dignissim. Aenean convallis vulputate eros vel gravida. Quisque a ante vitae ligula dapibus aliquet. Donec ac nisi at tellus congue scelerisque. Nunc nec posuere sem. Aenean justo urna, egestas at lobortis quis, gravida et nunc. Vestibulum dolor ante, elementum ornare nisl a, imperdiet posuere lacus. Etiam vel quam metus. Fusce vestibulum magna felis, nec placerat augue convallis ac. Aenean tincidunt justo vel velit commodo, at egestas est dictum.</p>
+`;
+document.body.appendChild(libraryDiv);
+
+/* click em planetas abre painel */
 document.addEventListener('click', (event)=>{
-  // raycast para abrir painel
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(planets);
   if (intersects.length > 0) {
     const index = intersects[0].object.userData.index - 1;
+    // esconde tudo
     planetDivs.forEach(d=> d && (d.style.display = 'none'));
+    libraryDiv.style.display = 'none';
+    // mostra o selecionado
     if (planetDivs[index]) {
       planetDivs[index].style.display = 'block';
       panelContent.innerHTML = '';
@@ -252,23 +272,20 @@ function startTipping(text){
   tipping.style.transform = 'translateY(0px)';
 }
 
-/* ------------------ Rewind (Zerar Órbita) suave com posições distintas ------------------ */
+/* ------------------ Rewind ------------------ */
 let rewindStartTime = null;
-const rewindDuration = 3000; // ms
+const rewindDuration = 3000;
 const rewindData = planets.map(()=>({ startAngle:0, endAngle:0 }));
 let isRewinding = false;
 
 const resetButton = document.getElementById('reset-orbit');
 resetButton.addEventListener('click', ()=>{
-  // iniciar rewind
   rewindStartTime = performance.now();
   isRewinding = true;
-  // base shift random para espalhar os planetas de forma ordenada
   const baseShift = Math.random()*Math.PI*2;
   const spacing = (Math.PI*2) / planets.length;
   planets.forEach((p, i)=>{
     rewindData[i].startAngle = p.userData.angle;
-    // garanto espaçamento + pequeno jitter para naturalidade
     const jitter = (Math.random() - 0.5) * (spacing * 0.2);
     rewindData[i].endAngle = baseShift + i*spacing + jitter;
   });
@@ -282,7 +299,13 @@ function startLoadingFade(){
   fadeStartTime = performance.now();
   loadingDiv.style.transition = `opacity ${loadingFadeDuration}ms ease`;
   loadingDiv.style.opacity = '0';
-  setTimeout(()=> { if (loadingDiv.parentNode) loadingDiv.remove(); }, loadingFadeDuration + 50);
+
+  setTimeout(()=> { 
+    if (loadingDiv.parentNode) loadingDiv.remove(); 
+    // mostra botão galaxia após fade
+    const galaxiaBtnLocal = document.getElementById('galaxia-btn');
+    if (galaxiaBtnLocal) galaxiaBtnLocal.classList.add('show');
+  }, loadingFadeDuration + 50);
 }
 
 /* fallback caso mesh falhe carregar */
@@ -290,15 +313,128 @@ setTimeout(()=> {
   if (!meshLoaded && !fadeStarted) startLoadingFade();
 }, 10000);
 
+/* ------------------ RESPONSIVE ------------------ */
+function applyResponsiveScale() {
+  const width = window.innerWidth;
+  let scaleFactor = 1;
+  if (width < 480) scaleFactor = 0.5;
+  else if (width < 768) scaleFactor = 0.7;
+  else if (width < 1024) scaleFactor = 0.85;
+  else scaleFactor = 1;
+
+  scaleFactor = Math.max(0.35, scaleFactor);
+  responsiveScaleFactor = scaleFactor;
+
+  if (mesh && mesh.userData && mesh.userData.originalScale) {
+    mesh.scale.copy(mesh.userData.originalScale.clone().multiplyScalar(scaleFactor));
+  } else {
+    pendingMeshScaleFactor = scaleFactor;
+  }
+
+  planets.forEach(p=>{
+    if (p.userData.originalScale) {
+      p.scale.copy(p.userData.originalScale.clone().multiplyScalar(scaleFactor));
+    }
+    if (typeof p.userData.originalRadius !== 'undefined') {
+      p.userData.radius = p.userData.originalRadius * scaleFactor;
+    }
+  });
+
+  if (scaleFactor < 1) {
+    camera.position.set(camera.position.x, camera.position.y, cameraOriginalZ / scaleFactor);
+  } else {
+    camera.position.set(camera.position.x, camera.position.y, cameraOriginalZ);
+  }
+  camera.updateProjectionMatrix();
+}
+
+applyResponsiveScale();
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  loadingCamera.aspect = window.innerWidth/window.innerHeight;
+  loadingCamera.updateProjectionMatrix();
+  loadingRenderer.setSize(window.innerWidth, window.innerHeight);
+  applyResponsiveScale();
+});
+
+/* ------------------ FUNDO PADRÃO: Starscape (paralaxe suave) ------------------ */
+let currentBgIndex = 0; // deixamos por compatibilidade, mas não há troca via Galáxia
+const bgGroup = new THREE.Group();
+scene.add(bgGroup);
+
+// apenas um fundo ativo (estrelas profundas)
+function createDeepSpaceStars(count = 6000) {
+  const positions = new Float32Array(count*3);
+  for (let i=0;i<count;i++){
+    positions[i*3]   = (Math.random()-0.5)*9000;
+    positions[i*3+1] = (Math.random()-0.5)*9000;
+    positions[i*3+2] = (Math.random()-0.5)*9000;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  const mat = new THREE.PointsMaterial({
+    size: 1.1,
+    map: spriteWhite,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  const stars = new THREE.Points(geom, mat);
+  stars.userData.animate = ()=>{ stars.rotation.y += 0.00015; };
+  return stars;
+}
+const backgrounds = [ createDeepSpaceStars() ];
+bgGroup.add(backgrounds[0]);
+
+/* ------------------ Tooltip do botão Galáxia (igual aos planetas) ------------------ */
+const galaxiaBtn = document.getElementById('galaxia-btn');
+let buttonTooltipVisible = false;
+
+function positionTooltipAtButton() {
+  const el = galaxiaBtn;
+  const tip = tipping;
+  if (!el || !tip) return;
+  const rect = el.getBoundingClientRect();
+  const px = rect.left + rect.width + 10;  // à direita do botão
+  const py = rect.top + rect.height/2 - 10;
+  tip.style.left = `${px}px`;
+  tip.style.top  = `${py}px`;
+}
+
+if (galaxiaBtn) {
+  galaxiaBtn.addEventListener('mouseenter', ()=>{
+    buttonTooltipVisible = true;
+    startTipping('Biblioteca de Recursos');
+    positionTooltipAtButton();
+  });
+  galaxiaBtn.addEventListener('mousemove', positionTooltipAtButton);
+  galaxiaBtn.addEventListener('mouseleave', ()=>{
+    buttonTooltipVisible = false;
+    tipping.style.opacity = '0';
+    tipping.style.transform = 'translateY(20px)';
+  });
+
+  // clique abre a aba "Biblioteca de Recursos" no painel
+  galaxiaBtn.addEventListener('click', ()=>{
+    // esconder outras
+    planetDivs.forEach(d=> d && (d.style.display = 'none'));
+    // mostrar biblioteca
+    libraryDiv.style.display = 'block';
+    panelContent.innerHTML = '';
+    panelContent.appendChild(libraryDiv);
+    panel.classList.add('open');
+  });
+}
+
 /* ------------------ ANIMAÇÃO ------------------ */
 function animate(){
   requestAnimationFrame(animate);
   controls.update();
 
-  // rotaciona mesh central
   if (mesh) mesh.rotation.y += 0.005;
 
-  // terminar loading quando mesh ok + delay
   if (meshLoaded && !fadeStarted){
     if (performance.now() - meshLoadedAt >= fadeDelayAfterLoad) startLoadingFade();
   }
@@ -307,15 +443,13 @@ function animate(){
     meshMaterial.opacity = t;
   }
 
-  // raycast hover
+  // hover tooltip para planetas
   raycaster.setFromCamera(mouse, camera);
   const hoverIntersects = raycaster.intersectObjects(planets);
-  // reset hover flags
   planets.forEach(p => p.userData.isHovered = false);
   if (hoverIntersects.length > 0){
     const obj = hoverIntersects[0].object;
     obj.userData.isHovered = true;
-    // tipping position (projeta posição do planeta para tela)
     const vec = new THREE.Vector3();
     vec.setFromMatrixPosition(obj.matrixWorld);
     vec.project(camera);
@@ -329,11 +463,13 @@ function animate(){
     }
   } else {
     document.body.style.cursor = 'default';
-    tipping.style.opacity = '0';
-    tipping.style.transform = 'translateY(20px)';
+    // só esconde se não estiver sobre o botão com tooltip
+    if (!buttonTooltipVisible){
+      tipping.style.opacity = '0';
+      tipping.style.transform = 'translateY(20px)';
+    }
   }
 
-  // animate tipping typing
   if (tippingFullText && tippingIndex < tippingFullText.length && (performance.now() - tippingLastTime) > tippingSpeed){
     tippingCurrent += tippingFullText[tippingIndex];
     tipping.textContent = tippingCurrent;
@@ -341,63 +477,39 @@ function animate(){
     tippingLastTime = performance.now();
   }
 
-  // painel limite (impedir planetas atravessarem o espaço do painel)
   const panelLeftX = window.innerWidth - panel.offsetWidth;
 
-  // se estiver rewinding, interpolar ângulos
+  // órbitas
   if (isRewinding){
     const t = Math.min(1, (performance.now() - rewindStartTime) / rewindDuration);
     planets.forEach((p, i)=>{
       p.userData.angle = THREE.MathUtils.lerp(rewindData[i].startAngle, rewindData[i].endAngle, t);
       const r = p.userData.radius;
       p.position.set(Math.cos(p.userData.angle)*r, Math.sin(p.userData.angle)*r*0.5, Math.sin(p.userData.angle)*r*0.5);
-      // bloquear X caso painel ativo
       if (p.position.x > panelLeftX - 0.5) p.position.x = panelLeftX - 0.5;
     });
     if (t >= 1) isRewinding = false;
   } else {
-    // órbita normal com slowdown ao hover
     planets.forEach(p=>{
-      // target speed: reduz muito quando hover sobre ESSE planeta
       const target = p.userData.isHovered ? p.userData.baseSpeed * 0.02 : p.userData.baseSpeed;
       p.userData.speed = THREE.MathUtils.lerp(p.userData.speed, target, 0.08);
       p.userData.angle += p.userData.speed;
-
       const r = p.userData.radius;
       p.position.set(Math.cos(p.userData.angle)*r, Math.sin(p.userData.angle)*r*0.5, Math.sin(p.userData.angle)*r*0.5);
-
-      // evitar invadir área do painel
       if (p.position.x > panelLeftX - 0.5) p.position.x = panelLeftX - 0.5;
+      const scaleF = p.userData.isHovered ? responsiveScaleFactor*1.3 : responsiveScaleFactor;
+      p.scale.copy(p.userData.originalScale.clone().multiplyScalar(scaleF));
     });
-    // colisão simples por repulsão angular mínima (evita sobreposição imediata)
-    // calculei ângulos e, se dois estiverem muito próximos angularmente, empurro levemente
-    const minAngularSeparation = 0.08; // radians -> ajustável
-    for (let a=0;a<planets.length;a++){
-      for (let b=a+1;b<planets.length;b++){
-        const pa = planets[a], pb = planets[b];
-        const da = pa.userData.angle, db = pb.userData.angle;
-        let delta = Math.atan2(Math.sin(db-da), Math.cos(db-da)); // diferença entre -PI..PI
-        if (Math.abs(delta) < minAngularSeparation){
-          const push = (minAngularSeparation - Math.abs(delta)) * 0.02;
-          // empurra em direções opostas
-          pa.userData.angle -= push;
-          pb.userData.angle += push;
-        }
-      }
+  }
+
+  // anima fundo ativo (estrelas)
+  if (backgrounds.length) {
+    const active = backgrounds[currentBgIndex];
+    if (active && active.userData && typeof active.userData.animate === 'function') {
+      active.userData.animate();
     }
   }
 
   renderer.render(scene, camera);
 }
 animate();
-
-/* ---------- resize handlers ---------- */
-window.addEventListener('resize', ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-
-  loadingCamera.aspect = window.innerWidth/window.innerHeight;
-  loadingCamera.updateProjectionMatrix();
-  loadingRenderer.setSize(window.innerWidth, window.innerHeight);
-});
