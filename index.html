@@ -7,22 +7,37 @@
 
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Bitter&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Planet divs -->
-<div id="planet-1" style="display:none;"><h2>Chamados.</h2><p>Texto aqui.</p></div>
-<div id="planet-2" style="display:none;"><h2>Segurança.</h2><p>Texto aqui.</p></div>
-<div id="planet-3" style="display:none;"><h2>Boas Praticas.</h2><p>Texto aqui.</p></div>
-<div id="planet-4" style="display:none;"><h2>Equipamentos.</h2><p>Texto aqui.</p></div>
-<div id="planet-5" style="display:none;"><h2>Acesso ao Escritório.</h2><p>Texto aqui.</p></div>
+<!-- Abas do painel (conteúdos ocultos) -->
+<div id="planet-1" style="display:none;"><h2>Chamados.</h2><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur elit vitae augue vehicula cursus. Nam dignissim dolor ut velit bibendum dignissim. Aenean convallis vulputate eros vel gravida. Quisque a ante vitae ligula dapibus aliquet. Donec ac nisi at tellus congue scelerisque. Nunc nec posuere sem. Aenean justo urna, egestas at lobortis quis, gravida et nunc. Vestibulum dolor ante, elementum ornare nisl a, imperdiet posuere lacus. Etiam vel quam metus. Fusce vestibulum magna felis, nec placerat augue convallis ac. Aenean tincidunt justo vel velit commodo, at egestas est dictum.</p></div>
+<div id="planet-2" style="display:none;"><h2>Segurança.</h2><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur elit vitae augue vehicula cursus. Nam dignissim dolor ut velit bibendum dignissim. Aenean convallis vulputate eros vel gravida. Quisque a ante vitae ligula dapibus aliquet. Donec ac nisi at tellus congue scelerisque. Nunc nec posuere sem. Aenean justo urna, egestas at lobortis quis, gravida et nunc. Vestibulum dolor ante, elementum ornare nisl a, imperdiet posuere lacus. Etiam vel quam metus. Fusce vestibulum magna felis, nec placerat augue convallis ac. Aenean tincidunt justo vel velit commodo, at egestas est dictum.</p></div>
+<div id="planet-3" style="display:none;"><h2>Boas Práticas.</h2><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur elit vitae augue vehicula cursus. Nam dignissim dolor ut velit bibendum dignissim. Aenean convallis vulputate eros vel gravida. Quisque a ante vitae ligula dapibus aliquet. Donec ac nisi at tellus congue scelerisque. Nunc nec posuere sem. Aenean justo urna, egestas at lobortis quis, gravida et nunc. Vestibulum dolor ante, elementum ornare nisl a, imperdiet posuere lacus. Etiam vel quam metus. Fusce vestibulum magna felis, nec placerat augue convallis ac. Aenean tincidunt justo vel velit commodo, at egestas est dictum.</p></div>
+<div id="planet-4" style="display:none;"><h2>Equipamentos.</h2><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur elit vitae augue vehicula cursus. Nam dignissim dolor ut velit bibendum dignissim. Aenean convallis vulputate eros vel gravida. Quisque a ante vitae ligula dapibus aliquet. Donec ac nisi at tellus congue scelerisque. Nunc nec posuere sem. Aenean justo urna, egestas at lobortis quis, gravida et nunc. Vestibulum dolor ante, elementum ornare nisl a, imperdiet posuere lacus. Etiam vel quam metus. Fusce vestibulum magna felis, nec placerat augue convallis ac. Aenean tincidunt justo vel velit commodo, at egestas est dictum.</p></div>
+<div id="planet-5" style="display:none;"><h2>Acesso ao Escritório.</h2><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur elit vitae augue vehicula cursus. Nam dignissim dolor ut velit bibendum dignissim. Aenean convallis vulputate eros vel gravida. Quisque a ante vitae ligula dapibus aliquet. Donec ac nisi at tellus congue scelerisque. Nunc nec posuere sem. Aenean justo urna, egestas at lobortis quis, gravida et nunc. Vestibulum dolor ante, elementum ornare nisl a, imperdiet posuere lacus. Etiam vel quam metus. Fusce vestibulum magna felis, nec placerat augue convallis ac. Aenean tincidunt justo vel velit commodo, at egestas est dictum.</p></div>
+
+<!-- Nova aba: Biblioteca de Recursos -->
+<div id="biblioteca-recursos" style="display:none;">
+  <h2>Biblioteca de Recursos</h2>
+  <p>Em construção... aqui você poderá listar links, PDFs, tutoriais e materiais internos.</p>
+  <ul>
+    <li><a href="#" onclick="return false;">Modelo de Documento (PDF)</a></li>
+    <li><a href="#" onclick="return false;">Guia Rápido</a></li>
+    <li><a href="#" onclick="return false;">FAQ Interno</a></li>
+  </ul>
+</div>
 
 <div id="tooltip"></div>
 <div id="tipping"></div>
 
 <button id="reset-orbit">Zerar Órbita</button>
+
+<!-- Botão Galaxia -->
+<button id="galaxia-btn" aria-label="Biblioteca de Recursos">
+  <img src="IMGS/galaxia.webp" alt="Galáxia">
+</button>
 
 <footer>
   © 2025 Criado no Laboratório de Tecnologia da Dream Factory - Todos os direitos reservados
@@ -37,5 +52,6 @@
   }
 }</script>
 <script type="module" src="universo.js"></script>
+
 </body>
 </html>
