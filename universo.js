@@ -1,11 +1,15 @@
-
 import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// -------------------------------------------------------------
-// Utils: sprite circular (estrelas/partículas) + cor média de textura
-// -------------------------------------------------------------
+/* ============================================================
+   PATCH MOBILE (Chrome Android) — NÃO ALTERA DESKTOP
+   ============================================================ */
+const isChromeAndroid = /Chrome/i.test(navigator.userAgent) && /Android/i.test(navigator.userAgent);
+
+/* ============================================================
+   Utils: sprite circular (estrelas/partículas) + cor média
+   ============================================================ */
 function createCircleSprite(color = '#ffffff', size = 64) {
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -25,7 +29,7 @@ function createCircleSprite(color = '#ffffff', size = 64) {
   return tex;
 }
 
-// Cor média aproximada de uma textura (usaremos para harmonizar visuais, se preciso)
+// Cor média aproximada de uma textura (se precisar no futuro)
 function computeTextureAvgColor(texture) {
   try {
     const img = texture.image;
@@ -51,23 +55,24 @@ function computeTextureAvgColor(texture) {
   }
 }
 
-// -------------------------------------------------------------
-// Loading: Star Tunnel (hiperespaço) com fade
-// -------------------------------------------------------------
+/* ============================================================
+   Loading: Star Tunnel (hiperespaço) com fade
+   ============================================================ */
 const loadingDiv = document.getElementById('loading');
 const loadingScene = new THREE.Scene();
 const loadingCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1600);
 loadingCamera.position.z = 5;
 
-const loadingRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+// ⚠️ Antialias ligado no desktop; desligado no mobile p/ estabilidade
+const loadingRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isChromeAndroid });
 loadingRenderer.setSize(window.innerWidth, window.innerHeight);
 loadingDiv.appendChild(loadingRenderer.domElement);
 
-// Sprite branco reutilizável (também usado depois no starfield principal)
+// Sprite branco reutilizável (também usado no starfield principal)
 const spriteWhite = createCircleSprite('#ffffff', 64);
 
-// Parâmetros do túnel (um pouco mais densos para impacto visual)
-const STAR_COUNT   = 2000;  // densidade equilibrada/alta
+// Parâmetros do túnel
+const STAR_COUNT   = isChromeAndroid ? 800 : 2000; // 🔻mobile reduz
 const TUNNEL_MIN_R = 2.0;
 const TUNNEL_MAX_R = 10.0;
 const TUNNEL_DEPTH = 420;
@@ -135,9 +140,9 @@ window.addEventListener('resize', () => {
   loadingRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// -------------------------------------------------------------
-// Fade compartilhado com a cena principal
-// -------------------------------------------------------------
+/* ============================================================
+   Fade compartilhado com a cena principal
+   ============================================================ */
 let meshLoaded = false;
 let meshLoadedAt = 0;
 const fadeDelayAfterLoad = 3000;   // aguarda 3s após o STL carregar
@@ -161,10 +166,9 @@ setTimeout(() => {
   if (!meshLoaded && !fadeStarted) startLoadingFade();
 }, 10000);
 
-
-// -------------------------------------------------------------
-// Cena principal e texturas
-// -------------------------------------------------------------
+/* ============================================================
+   Cena principal e texturas
+   ============================================================ */
 const scene = new THREE.Scene();
 const textureLoader = new THREE.TextureLoader();
 
@@ -263,7 +267,7 @@ const avgSize = createdSizes.reduce((a, b) => a + b, 0) / createdSizes.length;
 }
 
 // -------------------------------------------------------------
-// Fundo de estrelas denso (duas camadas)
+// Fundo de estrelas denso (duas camadas) — 🔻mobile reduz
 // -------------------------------------------------------------
 function createStarField(count, range) {
   const geom = new THREE.BufferGeometry();
@@ -284,15 +288,18 @@ function createStarField(count, range) {
   return new THREE.Points(geom, mat);
 }
 
-const starFieldNear = createStarField(12000, 2000);
-const starFieldFar  = createStarField(10000, 8000);
+const STARFIELD_NEAR_COUNT = isChromeAndroid ? 3000 : 12000;
+const STARFIELD_FAR_COUNT  = isChromeAndroid ? 2000 : 10000;
+
+const starFieldNear = createStarField(STARFIELD_NEAR_COUNT, 2000);
+const starFieldFar  = createStarField(STARFIELD_FAR_COUNT, 8000);
 starFieldFar.userData.animate = () => { starFieldFar.rotation.y += 0.0001; };
 
 scene.add(starFieldNear);
 scene.add(starFieldFar);
 
 // -------------------------------------------------------------
-// Câmera / Renderer / Luz
+// Câmera / Renderer / Luz (mantidos como no seu desktop)
 // -------------------------------------------------------------
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
 const cameraOriginalZ = 20;
@@ -339,9 +346,9 @@ loaderSTL.load('IMGS/Trestech.stl', geometry => {
   }
 }, undefined, () => setTimeout(() => startLoadingFade(), 3000));
 
-// -------------------------------------------------------------
-// Base de Tooltip (DOM)
-// -------------------------------------------------------------
+/* ============================================================
+   Base de Tooltip (DOM) — (desktop mantém; mobile desativa)
+   ============================================================ */
 const tipping = document.getElementById('tipping');
 let tippingFullText = '';
 let tippingCurrent = '';
@@ -350,6 +357,7 @@ let tippingLastTime = 0;
 const tippingSpeed = 80;
 
 function startTipping(text) {
+  if (isChromeAndroid) return; // 🔇 mobile não usa tipping
   tippingFullText = text || '';
   tippingCurrent = '';
   tippingIndex = 0;
@@ -359,15 +367,16 @@ function startTipping(text) {
 }
 
 function hideTipping() {
+  if (isChromeAndroid) return; // 🔇 mobile não usa tipping
   tipping.style.opacity = '0';
   tipping.style.transform = 'translateY(20px)';
 }
 
 
 
-// -------------------------------------------------------------
-// Painel de conteúdo (DOM)
-// -------------------------------------------------------------
+/* ============================================================
+   Painel de conteúdo (DOM) — sem alterações estruturais
+   ============================================================ */
 const panel = document.createElement('div');
 panel.className = 'planet-panel';
 document.body.appendChild(panel);
@@ -382,13 +391,32 @@ panel.appendChild(panelContent);
 function openPanel() { 
   panel.classList.add('open'); 
   panelOpen = true; 
+
+  // atualiza logo ao abrir (checa se já está perto do fim)
+  requestAnimationFrame(checkLogoHologramVisibility);
 }
 function closePanel() { 
   panel.classList.remove('open'); 
+  panel.classList.remove('show-logo'); // some logo ao fechar
   panelOpen = false;
   panelContent.querySelectorAll('iframe').forEach(iframe => { iframe.src = iframe.src; });
 }
 closeButton.onclick = closePanel;
+// Efeito do logo ao interagir com o painel
+['mouseenter','touchstart'].forEach(evt => {
+  panel.addEventListener(evt, () => {
+    if (panel.classList.contains('show-logo')) {
+      panel.classList.add('logo-zooming');
+    }
+  });
+});
+
+['mouseleave','touchend','touchcancel'].forEach(evt => {
+  panel.addEventListener(evt, () => {
+    panel.classList.remove('logo-zooming');
+  });
+});
+
 
 // Mapeamento dos DIVs HTML
 const planetDivs = [
@@ -402,9 +430,9 @@ const planetDivs = [
 
 let panelOpen = false;
 
-// -------------------------------------------------------------
-// Raycaster
-// -------------------------------------------------------------
+/* ============================================================
+   Raycaster
+   ============================================================ */
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
@@ -426,9 +454,9 @@ function showPlanetPanelByIndex(index) {
   }
 }
 
-// -------------------------------------------------------------
-// Responsividade Desktop / Mobile
-// -------------------------------------------------------------
+/* ============================================================
+   Responsividade Desktop / Mobile
+   ============================================================ */
 let isMobileStackMode = false;
 let isHalfStackMode = false;
 
@@ -510,7 +538,7 @@ function applyResponsiveScale() {
   // Planets scaling
   planets.forEach(p => {
     if (p.userData.originalScale) {
-      const mobilePlanetBoost = isMobile ? 1.25 : 1.0;
+      const mobilePlanetBoost = isMobile ? 1.8 : 1.0;
       p.scale.copy(p.userData.originalScale.clone().multiplyScalar(scaleFactor * mobilePlanetBoost));
     }
     if (typeof p.userData.originalRadius !== 'undefined') {
@@ -541,7 +569,7 @@ function applyResponsiveScale() {
     else layoutDesktopOrbit();
   }
 
-  // 🔒 Atualiza o estado dos controles e do toque STL no modo atual
+  // Atualiza o estado dos controles e do toque STL no modo atual
   updateControlsForMode();
 }
 applyResponsiveScale();
@@ -552,9 +580,9 @@ window.addEventListener('resize', () => {
   applyResponsiveScale();
 });
 
-// -------------------------------------------------------------
-// Interações Desktop
-// -------------------------------------------------------------
+/* ============================================================
+   Interações Desktop (inalteradas)
+   ============================================================ */
 window.addEventListener('click', (event) => {
   if (panelOpen) return;
   if (mobileIntro.active) return;
@@ -564,9 +592,9 @@ window.addEventListener('click', (event) => {
   if (hit.length > 0) showPlanetPanelByIndex(hit[0].object.userData.index - 1);
 });
 
-// -------------------------------------------------------------
-// Interações Mobile — Tooltip curto e abertura de painel
-// -------------------------------------------------------------
+/* ============================================================
+   Interações Mobile — tooltip desativado no Chrome Android
+   ============================================================ */
 window.addEventListener('touchstart', (ev) => {
   if (!ev.touches || ev.touches.length === 0) return;
   if (panelOpen) return;
@@ -575,18 +603,19 @@ window.addEventListener('touchstart', (ev) => {
   const t = ev.touches[0];
   const hit = intersectAtClient(t.clientX, t.clientY);
   if (hit.length > 0) {
-    const obj = hit[0].object;
-    const name = planetNames[obj.userData.index - 1];
+    if (!isChromeAndroid) {
+      const obj = hit[0].object;
+      const name = planetNames[obj.userData.index - 1];
+      const vec = new THREE.Vector3().setFromMatrixPosition(obj.matrixWorld);
+      vec.project(camera);
+      const px = (vec.x * 0.5 + 0.5) * window.innerWidth;
+      const py = (-(vec.y) * 0.5 + 0.5) * window.innerHeight;
 
-    const vec = new THREE.Vector3().setFromMatrixPosition(obj.matrixWorld);
-    vec.project(camera);
-    const px = (vec.x * 0.5 + 0.5) * window.innerWidth;
-    const py = (-(vec.y) * 0.5 + 0.5) * window.innerHeight;
-
-    tipping.style.left = `${px - 20}px`;
-    tipping.style.top = `${py - 60}px`;
-    startTipping(name);
-    setTimeout(() => hideTipping(), 1000);
+      tipping.style.left = `${px - 20}px`;
+      tipping.style.top = `${py - 60}px`;
+      startTipping(name);
+      setTimeout(() => hideTipping(), 1000);
+    }
   }
 }, { passive: true });
 
@@ -599,10 +628,12 @@ window.addEventListener('touchend', (ev) => {
   if (hit.length > 0) showPlanetPanelByIndex(hit[0].object.userData.index - 1);
 }, { passive: true });
 
-// -------------------------------------------------------------
-// Hover Desktop (com frenagem)
-// -------------------------------------------------------------
+/* ============================================================
+   Hover Desktop (com frenagem) — no mobile fica desativado
+   ============================================================ */
 function updateHoverTooltip() {
+  if (isChromeAndroid) return; // 🔇 evita tipping + custo no mobile
+
   if (panelOpen || mobileIntro.active) {
     document.body.style.cursor = 'default';
     hideTipping();
@@ -637,9 +668,9 @@ window.addEventListener('mousemove', (e) => {
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 
-// -------------------------------------------------------------
-// Reset de Órbita
-// -------------------------------------------------------------
+/* ============================================================
+   Reset de Órbita (inalterado)
+   ============================================================ */
 let rewindStartTime = null;
 const rewindDuration = 1800;
 let isRewinding = false;
@@ -663,10 +694,9 @@ document.getElementById('reset-orbit').addEventListener('click', () => {
   });
 });
 
-
-// -------------------------------------------------------------
-// 🔒 BLOQUEIO DE CONTROLES NO MOBILE + ROTAÇÃO DO STL COM INÉRCIA
-// -------------------------------------------------------------
+/* ============================================================
+   BLOQUEIO DE CONTROLES NO MOBILE + ROTAÇÃO DO STL (sem inércia)
+   ============================================================ */
 function updateControlsForMode() {
   if (isMobileStackMode) {
     // Desativa completamente o OrbitControls no mobile
@@ -690,79 +720,76 @@ function updateControlsForMode() {
   }
 }
 
-// Interação do STL no mobile (arrastar = rotacionar X/Y com inércia)
-const stlDrag = { active: false, lastX: 0, lastY: 0, vx: 0, vy: 0 };
-const STL_DRAG_SENS = 0.0020;  // sensibilidade baixa (pesado/realista)
-const STL_INERTIA = 0.92;      // fator de amortecimento da inércia por frame
-const STL_MIN_V = 0.00003;     // abaixo disso zera
+// Interação do STL no mobile (arrastar = rotacionar X/Y) — SEM INÉRCIA
+const stlDrag = { active: false, lastX: 0, lastY: 0 };
+const STL_DRAG_SENS = 0.0020;  // sensibilidade suave
 
 function onStlTouchStart(e) {
   if (!isMobileStackMode || !mesh) return;
   if (!e.touches || e.touches.length === 0) return;
-
   const t = e.touches[0];
   stlDrag.active = true;
   stlDrag.lastX = t.clientX;
   stlDrag.lastY = t.clientY;
-  stlDrag.vx = 0;
-  stlDrag.vy = 0;
 }
-
 function onStlTouchMove(e) {
   if (!isMobileStackMode || !mesh) return;
   if (!stlDrag.active) return;
   if (!e.touches || e.touches.length === 0) return;
-
   e.preventDefault(); // não deixa a página rolar
   const t = e.touches[0];
   const dx = t.clientX - stlDrag.lastX;
   const dy = t.clientY - stlDrag.lastY;
   stlDrag.lastX = t.clientX;
   stlDrag.lastY = t.clientY;
-
   // Aplica rotação (Y com dx, X com dy)
   mesh.rotation.y += dx * STL_DRAG_SENS;
   mesh.rotation.x += dy * STL_DRAG_SENS;
-
-  // Guarda velocidades para inércia
-  stlDrag.vx = dx * STL_DRAG_SENS * 0.4; // menor fator para "peso"
-  stlDrag.vy = dy * STL_DRAG_SENS * 0.4;
+  // Limita inclinação X para não "capotar"
+  const maxTilt = Math.PI / 2.5;
+  mesh.rotation.x = Math.max(-maxTilt, Math.min(maxTilt, mesh.rotation.x));
 }
-
 function onStlTouchEnd() {
   if (!isMobileStackMode) return;
   stlDrag.active = false;
 }
-
 // Liga listeners no canvas
 renderer.domElement.addEventListener('touchstart', onStlTouchStart, { passive: false });
 renderer.domElement.addEventListener('touchmove',  onStlTouchMove,  { passive: false });
 renderer.domElement.addEventListener('touchend',   onStlTouchEnd,   { passive: true  });
 
-// -------------------------------------------------------------
-// Loop de Animação Final
-// -------------------------------------------------------------
+
+/* ============================================================
+   Logo holográfico: visibilidade por scroll (>=85%)
+   ============================================================ */
+function checkLogoHologramVisibility() {
+  if (!panelOpen) {
+    panel.classList.remove('show-logo');
+    return;
+  }
+  const scrollPos = panel.scrollTop + panel.clientHeight;
+  const threshold = panel.scrollHeight * 0.85; // 85% do conteúdo
+  if (scrollPos >= threshold) {
+    panel.classList.add('show-logo');   // ativa holograma (CSS anima)
+  } else {
+    panel.classList.remove('show-logo'); // desativa (CSS some)
+  }
+}
+
+// Observa o scroll do painel
+panel.addEventListener('scroll', checkLogoHologramVisibility);
+
+/* ============================================================
+   Loop de Animação Final (desktop intacto; mobile otimizado)
+   ============================================================ */
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
 
-  // STL: gira sozinho sempre
+  // STL: gira sozinho sempre (desktop e mobile)
   if (mesh) mesh.rotation.y += 0.005;
 
-  // Inércia do STL no mobile
-  if (isMobileStackMode && mesh && !stlDrag.active) {
-    mesh.rotation.y += stlDrag.vx;
-    mesh.rotation.x += stlDrag.vy;
-    stlDrag.vx *= STL_INERTIA;
-    stlDrag.vy *= STL_INERTIA;
-    if (Math.abs(stlDrag.vx) < STL_MIN_V) stlDrag.vx = 0;
-    if (Math.abs(stlDrag.vy) < STL_MIN_V) stlDrag.vy = 0;
-
-    // Limita inclinação X para não "capotar"
-    const maxTilt = Math.PI / 2.5;
-    mesh.rotation.x = Math.max(-maxTilt, Math.min(maxTilt, mesh.rotation.x));
-  }
-
+  // Fade do loading — como no seu original
   if (meshLoaded && !fadeStarted) {
     if (performance.now() - meshLoadedAt >= fadeDelayAfterLoad) startLoadingFade();
   }
@@ -771,7 +798,8 @@ function animate() {
     meshMaterial.opacity = t;
   }
 
-  if (tippingFullText && tippingIndex < tippingFullText.length && performance.now() - tippingLastTime > tippingSpeed) {
+  // typing do tipping (apenas desktop)
+  if (!isChromeAndroid && tippingFullText && tippingIndex < tippingFullText.length && performance.now() - tippingLastTime > tippingSpeed) {
     tippingCurrent += tippingFullText[tippingIndex];
     tipping.textContent = tippingCurrent;
     tippingIndex++;
@@ -787,7 +815,7 @@ function animate() {
         planets.forEach((p, i) => {
           const a = mobileIntro.baseAngles[i] + t * Math.PI * 2;
           const r = mobileIntro.orbitR[i];
-          p.position.set(Math.cos(a) * r, Math.sin(a) * r, 0);
+          p.position.set(Math.cos(a)*r, Math.sin(a)*r, 0);
         });
         if (t >= 1) {
           mobileIntro.phase = 'stacking';
@@ -800,7 +828,7 @@ function animate() {
         const u = smoothstep(Math.min(1, (now - mobileIntro.t0) / mobileStackDuration));
         planets.forEach((p, i) => {
           const from = mobileIntro.fromPos[i];
-          const to = mobileIntro.toPos[i];
+          const to   = mobileIntro.toPos[i];
           p.position.lerpVectors(from, to, u);
         });
         if (u >= 1) {
@@ -810,6 +838,7 @@ function animate() {
         }
       }
     } else {
+      // Levitação suave mantida no mobile (sem remover)
       if (!panelOpen) {
         const time = now * 0.001;
         planets.forEach((p, i) => {
@@ -820,6 +849,7 @@ function animate() {
       }
     }
   } else {
+    // Desktop: órbitas (inalterado)
     if (isRewinding) {
       const t = Math.min(1, (now - rewindStartTime) / rewindDuration);
       planets.forEach((p, i) => {
@@ -846,3 +876,6 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
+
+
