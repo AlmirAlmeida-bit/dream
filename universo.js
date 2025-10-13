@@ -516,7 +516,7 @@ function applyResponsiveScale() {
 
   // STL Scaling
   if (mesh && mesh.userData?.originalScale) {
-    const mobileBoost = isMobile ? 1.3 : 1.0;
+    const mobileBoost = isMobile ? 1.5 : 1.0;
     mesh.scale.copy(mesh.userData.originalScale.clone().multiplyScalar(scaleFactor * mobileBoost));
   } else {
     pendingMeshScaleFactor = scaleFactor * (isMobile ? 1.3 : 1.0);
@@ -525,7 +525,7 @@ function applyResponsiveScale() {
   // Planets scaling
   planets.forEach(p => {
     if (p.userData.originalScale) {
-      const mobilePlanetBoost = isMobile ? 1.25 : 1.0;
+      const mobilePlanetBoost = isMobile ? 1.45 : 1.0;
       p.scale.copy(p.userData.originalScale.clone().multiplyScalar(scaleFactor * mobilePlanetBoost));
     }
     if (typeof p.userData.originalRadius !== 'undefined') {
@@ -863,6 +863,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
 
 
 
