@@ -178,8 +178,8 @@ const planetTextures = [
   'IMGS/planet2.webp',
   'IMGS/planet3.webp',
   'IMGS/planet4.webp',
-  'IMGS/planet5.jpg',
-  'IMGS/planet7.jpg' // Novidades
+  'IMGS/planet5.webp',
+  'IMGS/planet7.webp' // Novidades
 ];
 
 // Nomes dos planetas
@@ -863,6 +863,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
 
 
 
