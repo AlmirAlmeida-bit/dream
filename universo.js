@@ -267,7 +267,7 @@ const avgSize = createdSizes.reduce((a, b) => a + b, 0) / createdSizes.length;
 }
 
 // -------------------------------------------------------------
-// Fundo de estrelas denso (duas camadas) — 🔻mobile reduz
+// Fundo de estrelas denso (duas camadas) — 🔻mobile reduzido
 // -------------------------------------------------------------
 function createStarField(count, range) {
   const geom = new THREE.BufferGeometry();
@@ -288,8 +288,9 @@ function createStarField(count, range) {
   return new THREE.Points(geom, mat);
 }
 
-const STARFIELD_NEAR_COUNT = isChromeAndroid ? 3000 : 12000;
-const STARFIELD_FAR_COUNT  = isChromeAndroid ? 2000 : 10000;
+// 🔻 NOVOS VALORES — muito mais leves no Chrome Android
+const STARFIELD_NEAR_COUNT = isChromeAndroid ? 800 : 12000;
+const STARFIELD_FAR_COUNT  = isChromeAndroid ? 500 : 10000;
 
 const starFieldNear = createStarField(STARFIELD_NEAR_COUNT, 2000);
 const starFieldFar  = createStarField(STARFIELD_FAR_COUNT, 8000);
