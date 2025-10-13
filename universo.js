@@ -402,20 +402,6 @@ function closePanel() {
   panelContent.querySelectorAll('iframe').forEach(iframe => { iframe.src = iframe.src; });
 }
 closeButton.onclick = closePanel;
-// Efeito do logo ao interagir com o painel
-['mouseenter','touchstart'].forEach(evt => {
-  panel.addEventListener(evt, () => {
-    if (panel.classList.contains('show-logo')) {
-      panel.classList.add('logo-zooming');
-    }
-  });
-});
-
-['mouseleave','touchend','touchcancel'].forEach(evt => {
-  panel.addEventListener(evt, () => {
-    panel.classList.remove('logo-zooming');
-  });
-});
 
 
 // Mapeamento dos DIVs HTML
@@ -538,7 +524,7 @@ function applyResponsiveScale() {
   // Planets scaling
   planets.forEach(p => {
     if (p.userData.originalScale) {
-      const mobilePlanetBoost = isMobile ? 1.8 : 1.0;
+      const mobilePlanetBoost = isMobile ? 1.25 : 1.0;
       p.scale.copy(p.userData.originalScale.clone().multiplyScalar(scaleFactor * mobilePlanetBoost));
     }
     if (typeof p.userData.originalRadius !== 'undefined') {
