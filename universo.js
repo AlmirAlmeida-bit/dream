@@ -174,10 +174,10 @@ const textureLoader = new THREE.TextureLoader();
 
 // Mapeamento das texturas dos planetas
 const planetTextures = [
-  'IMGS/planet1.jpg',
-  'IMGS/planet2.jpg',
-  'IMGS/planet3.jpg',
-  'IMGS/planet4.jpg',
+  'IMGS/planet1.webp',
+  'IMGS/planet2.webp',
+  'IMGS/planet3.webp',
+  'IMGS/planet4.webp',
   'IMGS/planet5.jpg',
   'IMGS/planet7.jpg' // Novidades
 ];
@@ -863,6 +863,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
 
 
 
