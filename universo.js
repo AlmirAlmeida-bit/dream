@@ -155,8 +155,6 @@ setTimeout(() => {
   if (!meshLoaded && !fadeStarted) startLoadingFade();
 }, 10000);
 
-
-
 /* Cena principal e texturas*/
 const scene = new THREE.Scene();
 const textureLoader = new THREE.TextureLoader();
@@ -312,14 +310,6 @@ starFieldFar.userData.animate = () => { starFieldFar.rotation.y += 0.0001; };
 
 scene.add(starFieldNear);
 scene.add(starFieldFar);
-
-/* ✅ MOBILE: esconder starfield principal (fundo preto) */
-const isMobileViewport = window.matchMedia('(max-width: 768px)').matches;
-if (isMobileViewport) {
-  starFieldNear.visible = false;
-  starFieldFar.visible  = false;
-}
-
 
 /* Câmera / Renderer / Luz */
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
@@ -479,6 +469,8 @@ function stackPosByRank(rank) {
 
 // EMPILHAMENTO CUSTOM (7º planeta no topo, depois Chamados…)
 function layoutMobileStack() {
+  // ordem de exibição no stack (índices do array planets):
+  // 6 = novo planeta (Biblioteca), 0..5 = restantes na ordem original
   const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
   order.forEach((pIndex, rank) => {
     const p = planets[pIndex];
