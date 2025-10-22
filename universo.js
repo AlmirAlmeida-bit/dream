@@ -1,19 +1,23 @@
-import * as THREE from 'three';
-import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// Dynamic imports will be used inside initUniverse function
 
 /* PATCH MOBILE (Chrome Android)*/
 const isChromeAndroid = /Chrome/i.test(navigator.userAgent) && /Android/i.test(navigator.userAgent);
-const isMobileViewport = window.matchMedia('(max-width: 768px)').matches;
 
-/* Utils: sprite circular (estrelas/partículas) + cor média*/
-function createCircleSprite(color = '#ffffff', size = 64) {
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
+// Initialize Three.js universe on demand
+async function initUniverse() {
+  // Dynamic imports for Three.js
+  const THREE = await import('three');
+  const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
+  const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
 
-  const ctx = canvas.getContext('2d');
-  const grad = ctx.createRadialGradient(size / 2, size / 2, size * 0.05, size / 2, size / 2, size / 2);
+  /* Utils: sprite circular (estrelas/partículas) + cor média*/
+  function createCircleSprite(color = '#ffffff', size = 64) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(size/2, size/2, size*0.05, size/2, size/2, size/2);
   grad.addColorStop(0, color);
   grad.addColorStop(0.6, color);
   grad.addColorStop(1, 'rgba(0,0,0,0)');
@@ -38,12 +42,12 @@ function computeTextureAvgColor(texture) {
     const ctx = cvs.getContext('2d');
     ctx.drawImage(img, 0, 0, w, h);
     const data = ctx.getImageData(0, 0, w, h).data;
-    let r = 0, g = 0, b = 0, count = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      r += data[i]; g += data[i + 1]; b += data[i + 2]; count++;
+    let r=0, g=0, b=0, count=0;
+    for (let i=0; i<data.length; i+=4) {
+      r += data[i]; g += data[i+1]; b += data[i+2]; count++;
     }
     r = (r / count) | 0; g = (g / count) | 0; b = (b / count) | 0;
-    return new THREE.Color(r / 255, g / 255, b / 255);
+    return new THREE.Color(r/255, g/255, b/255);
   } catch {
     return new THREE.Color(0xffffff);
   }
@@ -55,9 +59,8 @@ const loadingScene = new THREE.Scene();
 const loadingCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1600);
 loadingCamera.position.z = 5;
 
-// Antialias ligado no desktop; desligado no mobile p/ estabilidade
-const loadingRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isChromeAndroid, powerPreference: 'high-performance' });
-loadingRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); // ✅ cap VRAM
+//Antialias ligado no desktop; desligado no mobile p/ estabilidade
+const loadingRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isChromeAndroid });
 loadingRenderer.setSize(window.innerWidth, window.innerHeight);
 loadingDiv.appendChild(loadingRenderer.domElement);
 
@@ -65,11 +68,11 @@ loadingDiv.appendChild(loadingRenderer.domElement);
 const spriteWhite = createCircleSprite('#ffffff', 64);
 
 // Parâmetros do túnel
-const STAR_COUNT = isChromeAndroid ? 800 : 2000;
+const STAR_COUNT   = isChromeAndroid ? 800 : 2000;
 const TUNNEL_MIN_R = 2.0;
 const TUNNEL_MAX_R = 10.0;
 const TUNNEL_DEPTH = 420;
-const HYPER_SPEED = 3.2;
+const HYPER_SPEED  = 3.2;
 const SPIRAL_SPEED = 0.002;
 
 const starPositions = new Float32Array(STAR_COUNT * 3);
@@ -80,9 +83,9 @@ for (let i = 0; i < STAR_COUNT; i++) {
   const r = Math.sqrt(Math.random()) * (TUNNEL_MAX_R - TUNNEL_MIN_R) + TUNNEL_MIN_R;
   const a = Math.random() * Math.PI * 2;
   const z = -Math.random() * TUNNEL_DEPTH - 5;
-  starPositions[i * 3] = Math.cos(a) * r;
-  starPositions[i * 3 + 1] = Math.sin(a) * r;
-  starPositions[i * 3 + 2] = z;
+  starPositions[i*3]     = Math.cos(a) * r;
+  starPositions[i*3 + 1] = Math.sin(a) * r;
+  starPositions[i*3 + 2] = z;
   starSpeedScale[i] = 0.7 + Math.random() * 0.6;
 }
 
@@ -100,14 +103,12 @@ const loadingMat = new THREE.PointsMaterial({
 const starTunnel = new THREE.Points(loadingGeom, loadingMat);
 loadingScene.add(starTunnel);
 
-// ✅ Controle de ciclo do loading (p/ poder desligar e liberar memória)
-let loadingLoopActive = true;
-
-function animateLoading() {
-  if (!loadingLoopActive) return; // corta o loop limpo
+// Animação do túnel
+let spiralAngle = 0;
+(function animateLoading() {
   requestAnimationFrame(animateLoading);
-
   const arr = loadingGeom.attributes.position.array;
+
   for (let i = 0; i < STAR_COUNT; i++) {
     const idxZ = i * 3 + 2;
     arr[idxZ] += HYPER_SPEED * starSpeedScale[i];
@@ -115,56 +116,33 @@ function animateLoading() {
       arr[idxZ] = -TUNNEL_DEPTH - Math.random() * 120;
       const r = Math.sqrt(Math.random()) * (TUNNEL_MAX_R - TUNNEL_MIN_R) + TUNNEL_MIN_R;
       const a = Math.random() * Math.PI * 2;
-      arr[i * 3] = Math.cos(a) * r;
-      arr[i * 3 + 1] = Math.sin(a) * r;
+      arr[i*3]     = Math.cos(a) * r;
+      arr[i*3 + 1] = Math.sin(a) * r;
       starSpeedScale[i] = 0.7 + Math.random() * 0.6;
     }
   }
 
-  starTunnel.rotation.z += SPIRAL_SPEED;
+  spiralAngle += SPIRAL_SPEED;
+  starTunnel.rotation.z = spiralAngle;
+
   loadingGeom.attributes.position.needsUpdate = true;
   loadingRenderer.render(loadingScene, loadingCamera);
-}
-animateLoading();
+})();
 
 // Resize do loading
-function onLoadingResize() {
+window.addEventListener('resize', () => {
   loadingCamera.aspect = window.innerWidth / window.innerHeight;
   loadingCamera.updateProjectionMatrix();
-  loadingRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   loadingRenderer.setSize(window.innerWidth, window.innerHeight);
-}
-window.addEventListener('resize', onLoadingResize);
+}, { passive: true });
 
-/* Fade compartilhado com a cena principal */
+/*Fade compartilhado com a cena principal*/
 let meshLoaded = false;
 let meshLoadedAt = 0;
 const fadeDelayAfterLoad = 3000;   // aguarda 3s após o STL carregar
 const loadingFadeDuration = 2000;  // duração do fade do overlay
 let fadeStarted = false;
 let fadeStartTime = 0;
-
-function disposeLoadingRenderer() {
-  try {
-    // libera geometria/material
-    starTunnel?.geometry?.dispose?.();
-    starTunnel?.material?.dispose?.();
-    loadingScene.clear();
-
-    // corta loop e listeners
-    loadingLoopActive = false;
-    window.removeEventListener('resize', onLoadingResize);
-
-    // libera contexto WebGL
-    loadingRenderer.forceContextLoss?.();
-    loadingRenderer.dispose?.();
-
-    // remove DOM
-    loadingRenderer.domElement?.remove?.();
-  } catch (e) {
-    // silencioso
-  }
-}
 
 function startLoadingFade() {
   if (fadeStarted) return;
@@ -174,7 +152,6 @@ function startLoadingFade() {
   loadingDiv.style.opacity = '0';
   setTimeout(() => {
     if (loadingDiv.parentNode) loadingDiv.remove();
-    disposeLoadingRenderer(); // ✅ desliga e libera memória do loading
   }, loadingFadeDuration + 50);
 }
 
@@ -182,7 +159,6 @@ function startLoadingFade() {
 setTimeout(() => {
   if (!meshLoaded && !fadeStarted) startLoadingFade();
 }, 10000);
-
 
 /* Cena principal e texturas*/
 const scene = new THREE.Scene();
@@ -195,8 +171,8 @@ const planetTextures = [
   'IMGS/planet3.webp',
   'IMGS/planet4.webp',
   'IMGS/planet5.webp',
-  'IMGS/planet7.webp',
-  'IMGS/planet6.webp'
+  'IMGS/planet7.webp', 
+  'IMGS/planet6.webp'  
 ];
 
 // Nomes dos planetas
@@ -207,7 +183,7 @@ const planetNames = [
   'Equipamentos',
   'Acesso ao Escritório',
   'Novidades',
-  'Biblioteca de Recursos'
+  'Biblioteca de Recursos' 
 ];
 
 const planets = [];
@@ -226,8 +202,7 @@ for (let i = 0; i < 5; i++) {
 
   planet.userData.index = i + 1;
   planet.userData.angle = Math.random() * Math.PI * 2;
-  //planet.userData.baseSpeed = 0.001 + i * 0.0008;
-  planet.userData.baseSpeed = 0.0006; // velocidade lenta e uniforme
+  planet.userData.baseSpeed = 0.001 + i * 0.0008;
   planet.userData.speed = planet.userData.baseSpeed;
   planet.userData.originalScale = planet.scale.clone();
 
@@ -310,14 +285,14 @@ const avgSize = createdSizes.reduce((a, b) => a + b, 0) / createdSizes.length;
   planets.push(p7);
 }
 
-/* Fundo de estrelas denso (duas camadas) — mantém visual igual */
+/* Fundo de estrelas denso (duas camadas) — mobile reduzido */
 function createStarField(count, range) {
   const geom = new THREE.BufferGeometry();
   const pos = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    pos[i * 3] = (Math.random() - 0.5) * range;
-    pos[i * 3 + 1] = (Math.random() - 0.5) * range;
-    pos[i * 3 + 2] = (Math.random() - 0.5) * range;
+    pos[i*3]   = (Math.random() - 0.5) * range;
+    pos[i*3+1] = (Math.random() - 0.5) * range;
+    pos[i*3+2] = (Math.random() - 0.5) * range;
   }
   geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const mat = new THREE.PointsMaterial({
@@ -330,28 +305,26 @@ function createStarField(count, range) {
   return new THREE.Points(geom, mat);
 }
 
-// Mesmos valores (mantém visual); já tinha redução no Chrome Android
+// NOVOS VALORES — muito mais leves no Chrome Android
 const STARFIELD_NEAR_COUNT = isChromeAndroid ? 800 : 12000;
-const STARFIELD_FAR_COUNT = isChromeAndroid ? 500 : 10000;
+const STARFIELD_FAR_COUNT  = isChromeAndroid ? 500 : 10000;
 
 const starFieldNear = createStarField(STARFIELD_NEAR_COUNT, 2000);
-const starFieldFar = createStarField(STARFIELD_FAR_COUNT, 8000);
+const starFieldFar  = createStarField(STARFIELD_FAR_COUNT, 8000);
 starFieldFar.userData.animate = () => { starFieldFar.rotation.y += 0.0001; };
 
 scene.add(starFieldNear);
 scene.add(starFieldFar);
-
-
 
 /* Câmera / Renderer / Luz */
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
 const cameraOriginalZ = 20;
 camera.position.set(0, 0, cameraOriginalZ);
 
-// ✅ powerPreference e cap de pixel ratio para VRAM
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+// Cap pixel ratio to reduce GPU load on high-DPI displays
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.AmbientLight(0x404040));
@@ -425,13 +398,13 @@ panel.appendChild(closeButton);
 const panelContent = document.createElement('div');
 panel.appendChild(panelContent);
 
-function openPanel() {
-  panel.classList.add('open');
-  panelOpen = true;
-  // opcional: poderíamos reduzir updates aqui para economizar
+function openPanel() { 
+  panel.classList.add('open'); 
+  panelOpen = true; 
+  requestAnimationFrame(checkLogoHologramVisibility);
 }
-function closePanel() {
-  panel.classList.remove('open');
+function closePanel() { 
+  panel.classList.remove('open'); 
   panel.classList.remove('show-logo');
   panelOpen = false;
   panelContent.querySelectorAll('iframe').forEach(iframe => { iframe.src = iframe.src; });
@@ -445,8 +418,8 @@ const planetDivs = [
   document.getElementById('planet-3'),
   document.getElementById('planet-4'),
   document.getElementById('planet-5'),
-  document.getElementById('planet-6'),
-  document.getElementById('planet-7')
+  document.getElementById('planet-6'), 
+  document.getElementById('planet-7')  
 ];
 
 let panelOpen = false;
@@ -503,7 +476,9 @@ function stackPosByRank(rank) {
 
 // EMPILHAMENTO CUSTOM (7º planeta no topo, depois Chamados…)
 function layoutMobileStack() {
-  const order = planets.length === 7 ? [6, 0, 1, 2, 3, 4, 5] : planets.map((_, i) => i);
+  // ordem de exibição no stack (índices do array planets):
+  // 6 = novo planeta (Biblioteca), 0..5 = restantes na ordem original
+  const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
   order.forEach((pIndex, rank) => {
     const p = planets[pIndex];
     const t = stackPosByRank(rank);
@@ -592,15 +567,12 @@ function applyResponsiveScale() {
   updateControlsForMode();
 }
 applyResponsiveScale();
-
-function onMainResize() {
+window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); // ✅ cap VRAM
   renderer.setSize(window.innerWidth, window.innerHeight);
   applyResponsiveScale();
-}
-window.addEventListener('resize', onMainResize);
+}, { passive: true });
 
 /* Interações Desktop*/
 window.addEventListener('click', (event) => {
@@ -646,9 +618,7 @@ window.addEventListener('touchend', (ev) => {
   if (hit.length > 0) showPlanetPanelByIndex(hit[0].object.userData.index - 1);
 }, { passive: true });
 
-/*Hover Desktop (com frenagem) — ✅ throttle para reduzir CPU */
-let lastHoverCheck = 0;
-const HOVER_INTERVAL_MS = 80;
+/*Hover Desktop (com frenagem)*/
 function updateHoverTooltip() {
   if (isChromeAndroid) return;
 
@@ -657,10 +627,6 @@ function updateHoverTooltip() {
     hideTipping();
     return;
   }
-
-  const nowTs = performance.now();
-  if (nowTs - lastHoverCheck < HOVER_INTERVAL_MS) return;
-  lastHoverCheck = nowTs;
 
   raycaster.setFromCamera(pointer, camera);
   const intersect = raycaster.intersectObjects(planets);
@@ -688,11 +654,11 @@ function updateHoverTooltip() {
 window.addEventListener('mousemove', (e) => {
   pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-});
+}, { passive: true });
 
 /*Reset de Órbita (com easing Apple Smooth)*/
 let rewindStartTime = null;
-const rewindDuration = 2800;
+const rewindDuration = 1800;
 let isRewinding = false;
 const rewindData = planets.map(() => ({ startAngle: 0, endAngle: 0 }));
 
@@ -767,18 +733,30 @@ function onStlTouchEnd() {
   stlDrag.active = false;
 }
 renderer.domElement.addEventListener('touchstart', onStlTouchStart, { passive: false });
-renderer.domElement.addEventListener('touchmove', onStlTouchMove, { passive: false });
-renderer.domElement.addEventListener('touchend', onStlTouchEnd, { passive: true });
+renderer.domElement.addEventListener('touchmove',  onStlTouchMove,  { passive: false });
+renderer.domElement.addEventListener('touchend',   onStlTouchEnd,   { passive: true  });
 
+/* ============================================================
+   Logo holográfico: visibilidade por scroll (>=85%)
 
+function checkLogoHologramVisibility() {
+  if (!panelOpen) {
+    panel.classList.remove('show-logo');
+    return;
+  }
+  const scrollPos = panel.scrollTop + panel.clientHeight;
+  const threshold = panel.scrollHeight * 0.85;
+  if (scrollPos >= threshold) {
+    panel.classList.add('show-logo');
+  } else {
+    panel.classList.remove('show-logo');
+  }
+}
+panel.addEventListener('scroll', checkLogoHologramVisibility);  */
 
-/* ====== LOOP PRINCIPAL COM CONTROLE (start/stop) ====== */
-let mainLoopRunning = false;
-
+/*Loop de Animação*/
 function animate() {
-  if (!mainLoopRunning) return;           // corta quando parado
   requestAnimationFrame(animate);
-
   controls.update();
 
   // STL: gira sozinho sempre
@@ -811,26 +789,28 @@ function animate() {
         planets.forEach((p, i) => {
           const a = mobileIntro.baseAngles[i] + te * Math.PI * 2;
           const r = mobileIntro.orbitR[i];
-          p.position.set(Math.cos(a) * r, Math.sin(a) * r, 0);
+          p.position.set(Math.cos(a)*r, Math.sin(a)*r, 0);
         });
         if (t >= 1) {
           mobileIntro.phase = 'stacking';
           mobileIntro.t0 = now;
           mobileIntro.fromPos = planets.map(p => p.position.clone());
 
+          // destino do empilhamento respeitando ordem customizada
           isHalfStackMode = true;
-          const order = planets.length === 7 ? [6, 0, 1, 2, 3, 4, 5] : planets.map((_, i) => i);
+          const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
           mobileIntro.toPos = order.map((_, rank) => stackPosByRank(rank));
         }
       } else if (mobileIntro.phase === 'stacking') {
         const u = Math.min(1, (now - mobileIntro.t0) / mobileStackDuration);
         const ue = appleEase(u);
 
-        const order = planets.length === 7 ? [6, 0, 1, 2, 3, 4, 5] : planets.map((_, i) => i);
+        // precisamos aplicar a ordem customizada aqui também
+        const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
         order.forEach((pIndex, rank) => {
           const p = planets[pIndex];
           const from = mobileIntro.fromPos[pIndex];
-          const to = mobileIntro.toPos[rank];
+          const to   = mobileIntro.toPos[rank];
           p.position.lerpVectors(from, to, ue);
         });
 
@@ -841,9 +821,10 @@ function animate() {
         }
       }
     } else {
+      // Levitação suave no mobile
       if (!panelOpen) {
         const time = now * 0.001;
-        const order = planets.length === 7 ? [6, 0, 1, 2, 3, 4, 5] : planets.map((_, i) => i);
+        const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
         order.forEach((pIndex, rank) => {
           const p = planets[pIndex];
           const amp = 0.45, freq = 0.9, phase = rank * 0.8;
@@ -866,8 +847,7 @@ function animate() {
     } else {
       planets.forEach(p => {
         const target = p.userData.baseSpeed;
-        //p.userData.speed = THREE.MathUtils.lerp(p.userData.speed, target, 0.08);
-        p.userData.speed = THREE.MathUtils.lerp(p.userData.speed, target, 0.03);
+        p.userData.speed = THREE.MathUtils.lerp(p.userData.speed, target, 0.08);
         p.userData.angle += p.userData.speed;
         const r = p.userData.radius;
         p.position.set(Math.cos(p.userData.angle) * r, Math.sin(p.userData.angle) * r, 0);
@@ -881,19 +861,21 @@ function animate() {
 
   renderer.render(scene, camera);
 }
+  animate();
 
-/* ✅ Controle de visibilidade: pausa e retoma o loop (evita tela preta/branca ao voltar) */
-function startMainLoop() {
-  if (mainLoopRunning) return;
-  mainLoopRunning = true;
-  requestAnimationFrame(animate);
-}
-function stopMainLoop() {
-  mainLoopRunning = false;
-}
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) stopMainLoop(); else startMainLoop();
+} // End of initUniverse function
+
+// Initialize universe after DOM is ready, with a small delay to prioritize initial paint
+document.addEventListener('DOMContentLoaded', () => {
+  // Check for reduced motion preference
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) {
+    console.log('Reduced motion preference detected, skipping 3D animations');
+    return;
+  }
+  
+  // Small delay to allow initial paint to complete
+  setTimeout(() => {
+    initUniverse().catch(console.error);
+  }, 500);
 });
-
-// Inicia o loop principal
-startMainLoop();
