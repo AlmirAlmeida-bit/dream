@@ -1,6 +1,4 @@
-/* =========================================================
-   ESTILOS BASE
-   ========================================================= */
+
 body {
   margin: 0;
   overflow: hidden;
@@ -10,9 +8,6 @@ body {
 
 canvas { display: block; }
 
-/* =========================================================
-   FOOTER
-   ========================================================= */
 footer {
   position: fixed;
   bottom: 0;
@@ -27,9 +22,7 @@ footer {
   z-index: 200;
 }
 
-/* =========================================================
-   PAINEL PRINCIPAL (desktop)
-   ========================================================= */
+
 .planet-panel {
   position: fixed;
   left: 50%;
@@ -58,21 +51,22 @@ footer {
   padding-bottom: 80px;
 }
 
-/* ================================================
+/*
    LOGO HOLOGRÁFICO (rolável junto ao conteúdo)
-   ================================================ */
+
 .planet-panel.open::after {
   content: "";
   display: block;
-  width: 35px;
-  height: 35px;
-  margin: 50px auto 0 auto; /* centraliza no painel */
-  background: url('IMGS/logo.webp') no-repeat center / contain;
+  width: 110px;
+  height: 110px;
+  margin-right: 50px; 
+  margin-top: 50px;
+  background: url('IMGS/logo.png') no-repeat center / contain;
   opacity: 0;
   pointer-events: none;
   filter: brightness(1.25) contrast(1.2);
   animation: hologramOff 0.3s forwards;
-}
+}*/
 
 /* Logo aparece ao atingir 85% do scroll */
 .planet-panel.open.show-logo::after {
@@ -175,9 +169,7 @@ footer {
   font-family: 'Brown', serif;
 }
 
-/* =========================================================
-   TIPPING
-   ========================================================= */
+
 #tipping {
   position: absolute;
   padding: 2px 8px;
@@ -195,9 +187,6 @@ footer {
   z-index: 30;
 }
 
-/* =========================================================
-   BOTÃO ZERAR ÓRBITA
-   ========================================================= */
 #reset-orbit {
   margin-bottom: 20px;
   padding: 8px 16px;
@@ -213,9 +202,7 @@ footer {
   z-index: 15;
 }
 
-/* =========================================================
-   LOADING
-   ========================================================= */
+
 #loading {
   position: fixed; top: 0; left: 0;
   width: 100%; height: 100%;
@@ -226,9 +213,7 @@ footer {
   transition: opacity 2s ease;
 }
 
-/* =========================================================
-   >>> MOBILE FIX FINAL <<<
-   ========================================================= */
+
 @media (max-width: 768px) {
 
   .planet-panel {
@@ -268,13 +253,13 @@ footer {
     padding: 5px 11px;
   }
 
-  /* 🔒 Impede gestos nativos (pinch/scroll) no WebGL;
+  /* Impede gestos nativos (pinch/scroll) no WebGL;
      o painel continua rolável normalmente */
   canvas {
     touch-action: none;
   }
 
-  /* 🚫 Desativa tooltip no mobile de forma contundente */
+  /* Desativa tooltip no mobile de forma contundente */
   #tipping {
     display: none !important;
   }
