@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -5,13 +6,115 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TIverso Dream Factory</title>
 
-  <link rel="icon" type="image/png" href="IMGS/logo.png">
+  <link rel="icon" type="image/webp" href="IMGS/logo.webp">
 
-  <!-- Google Fonts -->
+  <!-- Preconnects for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  
   <link href="https://fonts.googleapis.com/css2?family=Bitter&display=swap" rel="stylesheet">
 
-  <!-- CSS PRINCIPAL -->
-  <link rel="stylesheet" href="style.css">
+  
+  <!-- Critical CSS inlined for initial paint -->
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      cursor: default;
+      background: black;
+    }
+    canvas { display: block; }
+    footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #0088ff;
+      color: #000000;
+      text-align: center;
+      padding: 3px 0;
+      font-family: 'Brown', serif;
+      font-size: 12px;
+      z-index: 200;
+    }
+    .planet-panel {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      transform: translate(-50%, 100%);
+      width: 70vw;
+      max-width: 900px;
+      height: 95vh;
+      background: rgba(0, 0, 0, 0.70);
+      border: 1px solid #0088ff;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      transition: transform 0.5s ease;
+      z-index: 100;
+      padding: 20px;
+      box-sizing: border-box;
+      color: #fff;
+      font-family: 'Brown', serif;
+      overflow-y: auto;
+    }
+    #loading {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: black;
+      z-index: 60;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 2s ease;
+    }
+    #reset-orbit {
+      margin-bottom: 20px;
+      padding: 8px 16px;
+      cursor: pointer;
+      background: #222;
+      color: #0088ff;
+      border: 1px solid #0088ff;
+      border-radius: 4px;
+      font-family: 'Brown', serif;
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 15;
+    }
+    @media (max-width: 768px) {
+      .planet-panel {
+        position: fixed !important;
+        bottom: 0 !important;
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 89vh !important;
+        border-radius: 18px 18px 0 0;
+        transform: translateY(100%) !important;
+      }
+      #reset-orbit {
+        top: auto;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 70%;
+        padding: 7px 14px;
+      }
+      footer {
+        font-size: 10px;
+        padding: 2px 0;
+      }
+      canvas {
+        touch-action: none;
+      }
+    }
+  </style>
+  
+  <!-- Non-critical CSS loaded asynchronously -->
+  <link rel="stylesheet" href="style.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="style.css"></noscript>
 
   <style>
     /* Wrapper para vídeos responsivos */
@@ -33,74 +136,98 @@
 </head>
 <body>
 
-  <!-- =========================================
-       ABAS DO PAINEL (ocultas por padrão)
-       ========================================= -->
+
+  <div id="planet-6" style="display:none;">
+    <h2>Novidades.</h2>
+    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ab harum, quasi voluptatem sit iste labore, repellendus alias, similique non dolorum nesciunt. Illum veritatis similique eos delectus placeat itaque aspernatur nulla explicabo soluta quaerat nostrum deleniti, sint numquam officia, eum vero natus consequatur? Quaerat quae architecto amet consequuntur, nam soluta culpa. Corrupti in dolorum delectus quidem! Odit laborum minus delectus eos maxime voluptate adipisci nihil, ducimus mollitia distinctio, saepe, blanditiis modi eius aliquid ut cumque repudiandae quidem eum tempora cupiditate! Iure nemo placeat excepturi facere id repellat quisquam veritatis aliquam, minus quae odio officiis, nihil eveniet iste saepe perspiciatis, in ducimus.</p>
+  </div>
+
+ 
   <div id="planet-1" style="display:none;">
     <h2>Chamados.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur, adipisicing elit. Dolorem, numquam facere nesciunt est, reprehenderit, nisi nulla illo nemo commodi at pariatur necessitatibus sint animi molestias quis. Velit, maiores harum rem libero, beatae accusamus repellendus eveniet iusto porro dolorem nobis amet ducimus numquam voluptate eligendi corporis culpa recusandae ex eaque nisi! Obcaecati quam nam ipsam soluta repellat veniam velit vel, corporis mollitia aperiam ad dolorum recusandae ex, facilis exercitationem voluptatibus quisquam, hic autem. Temporibus incidunt alias nemo tempore quas, fugiat at sed distinctio vitae iusto pariatur, commodi consequatur id consequuntur quibusdam necessitatibus possimus nulla error aut! Velit porro nesciunt rem. Quae.</p>
+    <p>Lorem ipsum dolor sit amet consectetur, adipisicing elit. Dolorem, numquam facere nesciunt est, reprehenderit, nisi nulla illo nemo commodi at pariatur necessitatibus sint animi molestias quis. Velit, maiores harum rem libero, beatae accusamus repellendus eveniet iusto porro dolorem nobis amet ducimus numquam voluptate eligendi corpos culpa recusandae ex eaque nisi! Obcaecati quam nam ipsam soluta repellat veniam velit vel, corporis mollitia aperiam ad dolorum recusandae ex, facilis exercitationem voluptatibus quisquam, hic autem. Temporibus incidunt alias nemo tempore quas, fugiat at sed distinctio vitae iusto pariatur, commodi consequatur id consequuntur quibusdam necessitatibus possimus nulla error aut! Velit porro nesciunt rem. Quae.</p>
     <div class="video-wrapper">
       <iframe 
-        src="https://www.youtube.com/embed/IWVJq-4zW24?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1"
-        allow="autoplay; encrypted-media"
+        data-src="https://www.youtube.com/embed/IWVJq-4zW24?rel=0&modestbranding=1&playsinline=1"
+        src="about:blank"
+        loading="lazy"
+        decoding="async"
+        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
         allowfullscreen></iframe>
     </div>
   </div>
 
+ 
   <div id="planet-2" style="display:none;">
     <h2>Segurança.</h2>
     <p>Lorem ipsum dolor, sit amet consectetur adipisicing elit. Eius velit doloremque minima aspernatur magni ex ea laudantium, architecto eos, quas amet possimus aliquid dignissimos nisi accusantium! Doloremque saepe suscipit doloribus distinctio, sequi quas? Eum harum velit, voluptatem facere distinctio a, neque, recusandae quam nihil hic aperiam sapiente debitis cupiditate reprehenderit. Culpa sint voluptatem non porro esse accusamus, modi nam atque in est, illum ipsa quod eaque dignissimos nesciunt similique animi voluptate vel! Repudiandae quia reprehenderit laudantium, corporis voluptatum dicta accusantium, molestiae debitis praesentium quaerat non ducimus rerum sed autem soluta. Error soluta necessitatibus sed dignissimos beatae suscipit odio sit maxime?</p>
     <div class="video-wrapper">
       <iframe 
-        src="https://www.youtube.com/embed/farhUf3-1XE?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1"
-        allow="autoplay; encrypted-media"
+        data-src="https://www.youtube.com/embed/farhUf3-1XE?rel=0&modestbranding=1&playsinline=1"
+        src="about:blank"
+        loading="lazy"
+        decoding="async"
+        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
         allowfullscreen></iframe>
     </div>
   </div>
+
 
   <div id="planet-3" style="display:none;">
     <h2>Boas Práticas.</h2>
     <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Illo perferendis reiciendis iusto! Vel reprehenderit harum, ea nihil labore beatae nesciunt? Exercitationem porro, quam iure sed similique veritatis voluptatem laboriosam minus. Autem eaque nam voluptate molestiae architecto asperiores deserunt non rem, atque odio inventore! Blanditiis officia eaque porro. Repudiandae non natus praesentium obcaecati dolorum corporis. Ex quod tempora aliquam reprehenderit, quae atque laudantium omnis, consequatur distinctio nostrum possimus quo, optio provident at nihil obcaecati. Placeat modi voluptas optio, iste ullam quia animi saepe dolor tenetur possimus eum iusto molestiae aspernatur doloremque deleniti sit explicabo id enim quis. Voluptatibus optio repellendus nisi!</p>
     <div class="video-wrapper">
       <iframe 
-        src="https://www.youtube.com/embed/wnhvanMdx4s?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1"
-        allow="autoplay; encrypted-media"
+        data-src="https://www.youtube.com/embed/wnhvanMdx4s?rel=0&modestbranding=1&playsinline=1"
+        src="about:blank"
+        loading="lazy"
+        decoding="async"
+        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
         allowfullscreen></iframe>
     </div>
   </div>
 
+ 
   <div id="planet-4" style="display:none;">
     <h2>Equipamentos.</h2>
     <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ut architecto quibusdam fuga. Ratione vitae distinctio sunt dolor debitis quisquam aliquam culpa quod deleniti enim incidunt perferendis, odit esse dolore tempore, dicta voluptatem eum, ducimus neque doloremque saepe omnis minus. Corrupti veniam et deleniti quam recusandae porro quaerat, ipsum nesciunt tempore ipsam modi, itaque blanditiis esse. Sit corporis qui officia repellat odit, similique quia provident tempore iure doloribus dolore delectus quidem dignissimos doloremque ad optio, voluptatum quam cupiditate omnis sequi vitae earum. Molestias repellat, sequi repellendus excepturi vitae placeat consequatur labore eum quia magnam hic incidunt voluptates sapiente dignissimos quibusdam atque?</p>
     <div class="video-wrapper">
       <iframe 
-        src="https://www.youtube.com/embed/X-XZx1o_w-A?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1"
-        allow="autoplay; encrypted-media"
+        data-src="https://www.youtube.com/embed/X-XZx1o_w-A?rel=0&modestbranding=1&playsinline=1"
+        src="about:blank"
+        loading="lazy"
+        decoding="async"
+        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
         allowfullscreen></iframe>
     </div>
   </div>
 
+  
   <div id="planet-5" style="display:none;">
     <h2>Acesso ao Escritório.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Omnis dolorem placeat quaerat rem totam modi explicabo adipisci nobis corporis praesentium quibusdam ipsum facilis sequi vel eum, obcaecati labore provident suscipit non expedita ea maxime quas! Quos similique cumque pariatur? Autem quam eum doloremque necessitatibus blanditiis cum labore earum impedit, facilis iusto enim ab doloribus. Odio eveniet ex minima labore perferendis, aperiam dolorum voluptatum omnis rem facere inventore nemo adipisci eaque consequatur voluptates ipsum, natus quas harum illum possimus alias dicta? Eaque iste corrupti eligendi voluptas quo labore consequuntur cum cumque tempore autem. Placeat dolores facere laudantium ad. Error, nemo nam?</p>
+    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Omnis dolorem placeat quaerat rem totam modi explicabo adipisci nobis corpos praesentium quibusdam ipsum facilis sequi vel eum, obcaecati labore provident suscipit non expedita ea maxime quas! Quos similique cumque pariatur? Autem quam eum doloremque necessitatibus blanditiis cum labore earum impedit, facilis iusto enim ab doloribus. Odio eveniet ex minima labore perferendis, aperiam dolorum voluptatum omnis rem facere inventore nemo adipisci eaque consequatur voluptates ipsum, natus quas harum illum possimus alias dicta? Eaque iste corrupti eligendi voluptas quo labore consequuntur cum cumque tempore autem. Placeat dolores facere laudantium ad. Error, nemo nam?</p>
     <div class="video-wrapper">
       <iframe 
-        src="https://www.youtube.com/embed/ztVV54sPOns?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1"
-        allow="autoplay; encrypted-media"
+        data-src="https://www.youtube.com/embed/ztVV54sPOns?rel=0&modestbranding=1&playsinline=1"
+        src="about:blank"
+        loading="lazy"
+        decoding="async"
+        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
         allowfullscreen></iframe>
     </div>
   </div>
 
-  <!-- =========================================
-       NOVO: PLANETA 6 - NOVIDADES
-       ========================================= -->
-  <div id="planet-6" style="display:none;">
-    <h2>Novidades.</h2>
+
+  <div id="planet-7" style="display:none;">
+    <h2>Biblioteca de Recursos.</h2>
     <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Perferendis id quidem possimus officia cumque ex rem voluptas velit, delectus ipsa quam eius quia temporibus nemo modi distinctio sequi eum unde. Quos cum dolores iusto excepturi alias mollitia accusamus dolorum distinctio perspiciatis ullam. Similique obcaecati magnam ipsum repellendus reprehenderit officia, ea nobis, deserunt deleniti incidunt, atque aspernatur saepe in praesentium modi dicta recusandae quasi itaque eligendi libero quos cumque accusantium corporis ipsa. Ea aperiam, debitis repudiandae explicabo ipsa, cum nemo et adipisci ipsum natus omnis nisi praesentium laborum vero rerum exercitationem saepe ut similique maxime! Vel dignissimos excepturi praesentium debitis numquam.</p>
     <div class="video-wrapper">
       <iframe 
-        src="https://www.youtube.com/embed/crDZv7qpdgs?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1"
-        allow="autoplay; encrypted-media"
+        data-src="https://www.youtube.com/embed/SdRmTQd2zks?rel=0&modestbranding=1&playsinline=1"
+        src="about:blank"
+        loading="lazy"
+        decoding="async"
+        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
         allowfullscreen></iframe>
     </div>
   </div>
@@ -109,10 +236,8 @@
   <div id="tooltip"></div>
   <div id="tipping"></div>
 
-  <!-- BOTÃO DE RESET DA ÓRBITA -->
   <button id="reset-orbit">Zerar Órbita</button>
 
-  <!-- FOOTER -->
   <footer>
     © 2025 Criado no Laboratório de Tecnologia da Dream Factory - Todos os direitos reservados
   </footer>
@@ -128,8 +253,28 @@
     }
   }</script>
 
-  <!-- SCRIPT PRINCIPAL -->
+
   <script type="module" src="universo.js"></script>
+
+  <!-- Lazy YouTube iframe loader -->
+  <script>
+    // Minimal IO-based lazy loader for iframes
+    (function(){
+      const iframes = document.querySelectorAll('iframe[data-src]');
+      const onIntersect = (entries, obs) => {
+        for (const e of entries) if (e.isIntersecting) {
+          const el = e.target;
+          el.src = el.dataset.src; // set real src on view
+          el.removeAttribute('data-src');
+          obs.unobserve(el);
+        }
+      };
+      const io = 'IntersectionObserver' in window ?
+        new IntersectionObserver(onIntersect, { rootMargin: '200px' }) : null;
+      if (io) iframes.forEach(i => io.observe(i));
+      else iframes.forEach(i => i.src = i.dataset.src); // fallback
+    })();
+  </script>
 
 </body>
 </html>
