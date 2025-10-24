@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -13,9 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   
-  <link href="https://fonts.googleapis.com/css2?family=Bitter&display=swap" rel="stylesheet">
+  <!-- Google Fonts: Montserrat + Space Grotesk -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
 
-  
   <!-- Critical CSS inlined for initial paint -->
   <style>
     body {
@@ -23,8 +22,12 @@
       overflow: hidden;
       cursor: default;
       background: black;
+      font-family: 'Montserrat', 'Space Grotesk', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
     canvas { display: block; }
+
     footer {
       position: fixed;
       bottom: 0;
@@ -34,9 +37,16 @@
       color: #000000;
       text-align: center;
       padding: 3px 0;
-      font-family: 'Brown', serif;
+      font-family: 'Montserrat', sans-serif;
       font-size: 12px;
       z-index: 200;
+      opacity: 0;
+      transform: translateY(100%);
+      transition: opacity 2s ease, transform 2s ease;
+    }
+    footer.show {
+      opacity: 1;
+      transform: translateY(0);
     }
     .planet-panel {
       position: fixed;
@@ -55,8 +65,12 @@
       padding: 20px;
       box-sizing: border-box;
       color: #fff;
-      font-family: 'Brown', serif;
+      font-family: 'Montserrat', sans-serif;
       overflow-y: auto;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: 0.5px;
     }
     #loading {
       position: fixed; top: 0; left: 0;
@@ -68,18 +82,23 @@
       transition: opacity 2s ease;
     }
     #reset-orbit {
-      margin-bottom: 20px;
-      padding: 8px 16px;
-      cursor: pointer;
-      background: #222;
-      color: #0088ff;
-      border: 1px solid #0088ff;
-      border-radius: 4px;
-      font-family: 'Brown', serif;
       position: fixed;
       top: 10px;
       left: 10px;
       z-index: 15;
+      width: 90px;
+      height: 90px;
+      cursor: pointer;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      opacity: 0.9;
+      object-fit: contain;
+    }
+    #reset-orbit:hover {
+      transform: scale(1.35);
+      opacity: 1;
+    }
+    #reset-orbit:active {
+      transform: scale(1.05);
     }
     @media (max-width: 768px) {
       .planet-panel {
@@ -99,12 +118,29 @@
         bottom: 60px;
         left: 50%;
         transform: translateX(-50%);
-        font-size: 70%;
-        padding: 7px 14px;
+        width: 50px;
+        height: 50px;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0.9;
+        object-fit: contain;
+      }
+      #reset-orbit:hover {
+        transform: translateX(-50%) scale(1.18);
+        opacity: 1;
+      }
+      #reset-orbit:active {
+        transform: translateX(-50%) scale(1.05);
       }
       footer {
         font-size: 10px;
         padding: 2px 0;
+        opacity: 0;
+        transform: translateY(100%);
+        transition: opacity 2s ease, transform 2s ease;
+      }
+      footer.show {
+        opacity: 1;
+        transform: translateY(0);
       }
       canvas {
         touch-action: none;
@@ -112,7 +148,7 @@
     }
   </style>
   
-  <!-- Non-critical CSS loaded asynchronously -->
+  <!-- External CSS -->
   <link rel="stylesheet" href="style.css" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="style.css"></noscript>
 
@@ -136,116 +172,97 @@
 </head>
 <body>
 
-
+  <!-- Painéis de conteúdo -->
   <div id="planet-6" style="display:none;">
     <h2>Novidades.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ab harum, quasi voluptatem sit iste labore, repellendus alias, similique non dolorum nesciunt. Illum veritatis similique eos delectus placeat itaque aspernatur nulla explicabo soluta quaerat nostrum deleniti, sint numquam officia, eum vero natus consequatur? Quaerat quae architecto amet consequuntur, nam soluta culpa. Corrupti in dolorum delectus quidem! Odit laborum minus delectus eos maxime voluptate adipisci nihil, ducimus mollitia distinctio, saepe, blanditiis modi eius aliquid ut cumque repudiandae quidem eum tempora cupiditate! Iure nemo placeat excepturi facere id repellat quisquam veritatis aliquam, minus quae odio officiis, nihil eveniet iste saepe perspiciatis, in ducimus.</p>
+<P>Trazer novidades em tecnologia para a Dream Factory é motivo de grande alegria e entusiasmo. Cada nova solução implantada representa mais do que uma simples atualização de sistemas — é um passo à frente na construção de um ambiente digital mais inteligente, ágil e inovador. Ver ideias ganhando forma, processos se tornando mais eficientes e pessoas trabalhando com ferramentas que facilitam seu dia a dia é o que move nossa equipe. </P>
+<P>A tecnologia tem o poder de transformar desafios em oportunidades, e é com esse espírito que buscamos constantemente o novo: soluções que simplifiquem, conectem e inspirem. Cada avanço, cada melhoria e cada projeto implementado reforça o compromisso da Dream Factory em oferecer o melhor em experiência, desempenho e segurança digital. </P>
+<P>Mais do que evoluir sistemas, queremos evoluir pessoas. A verdadeira inovação acontece quando a tecnologia desperta curiosidade, amplia horizontes e potencializa talentos. Por isso, cada novidade tecnológica trazida para a Dream Factory é celebrada como uma conquista coletiva — fruto de trabalho, aprendizado e paixão por transformar o futuro em algo possível hoje. </P>
+<P>Inovar é sonhar com o amanhã e construir o hoje!</P>
+<P>💫 Todas as novidades, lançamentos e melhorias de tecnologia serão anunciadas com exclusividade no TIverso — o nosso espaço oficial de comunicação e descobertas digitais.
+Fique atento: é por lá que você ficará por dentro das inovações, dicas e experiências que tornam a Dream Factory cada vez mais conectada, moderna e inspiradora. </P>
+
   </div>
 
- 
   <div id="planet-1" style="display:none;">
     <h2>Chamados.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur, adipisicing elit. Dolorem, numquam facere nesciunt est, reprehenderit, nisi nulla illo nemo commodi at pariatur necessitatibus sint animi molestias quis. Velit, maiores harum rem libero, beatae accusamus repellendus eveniet iusto porro dolorem nobis amet ducimus numquam voluptate eligendi corpos culpa recusandae ex eaque nisi! Obcaecati quam nam ipsam soluta repellat veniam velit vel, corporis mollitia aperiam ad dolorum recusandae ex, facilis exercitationem voluptatibus quisquam, hic autem. Temporibus incidunt alias nemo tempore quas, fugiat at sed distinctio vitae iusto pariatur, commodi consequatur id consequuntur quibusdam necessitatibus possimus nulla error aut! Velit porro nesciunt rem. Quae.</p>
+    <p>Lorem ipsum dolor sit amet consectetur, adipisicing elit...</p>
     <div class="video-wrapper">
-      <iframe 
-        data-src="https://www.youtube.com/embed/IWVJq-4zW24?rel=0&modestbranding=1&playsinline=1"
-        src="about:blank"
-        loading="lazy"
-        decoding="async"
-        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
-        allowfullscreen></iframe>
+      <iframe data-src="https://www.youtube.com/embed/IWVJq-4zW24?rel=0&modestbranding=1&playsinline=1"
+              src="about:blank" loading="lazy" decoding="async"
+              allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
+              allowfullscreen></iframe>
     </div>
   </div>
 
- 
   <div id="planet-2" style="display:none;">
     <h2>Segurança.</h2>
-    <p>Lorem ipsum dolor, sit amet consectetur adipisicing elit. Eius velit doloremque minima aspernatur magni ex ea laudantium, architecto eos, quas amet possimus aliquid dignissimos nisi accusantium! Doloremque saepe suscipit doloribus distinctio, sequi quas? Eum harum velit, voluptatem facere distinctio a, neque, recusandae quam nihil hic aperiam sapiente debitis cupiditate reprehenderit. Culpa sint voluptatem non porro esse accusamus, modi nam atque in est, illum ipsa quod eaque dignissimos nesciunt similique animi voluptate vel! Repudiandae quia reprehenderit laudantium, corporis voluptatum dicta accusantium, molestiae debitis praesentium quaerat non ducimus rerum sed autem soluta. Error soluta necessitatibus sed dignissimos beatae suscipit odio sit maxime?</p>
-    <div class="video-wrapper">
-      <iframe 
-        data-src="https://www.youtube.com/embed/farhUf3-1XE?rel=0&modestbranding=1&playsinline=1"
-        src="about:blank"
-        loading="lazy"
-        decoding="async"
-        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
-        allowfullscreen></iframe>
-    </div>
+    <p>Cada usuário é parte essencial na proteção das informações da empresa. A segurança digital não depende apenas de sistemas, antivírus ou políticas de TI — ela começa nas atitudes diárias de cada pessoa. Manter a tela do computador bloqueada ao se ausentar, usar senhas fortes e exclusivas, evitar compartilhá-las e desconfiar de e-mails ou links suspeitos são práticas simples que fazem uma grande diferença. Também é importante realizar backups regulares, manter dispositivos atualizados e evitar o uso de pendrives desconhecidos ou redes Wi-Fi públicas. </p>
+<p>Quando essas medidas são ignoradas, as consequências podem ser graves. Um simples descuido, como deixar a tela desbloqueada ou clicar em um link falso, pode expor dados sigilosos, comprometer sistemas inteiros e até causar prejuízos financeiros à empresa. Informações pessoais e corporativas podem ser roubadas, alteradas ou utilizadas em fraudes. Além disso, ataques cibernéticos muitas vezes exploram justamente falhas humanas — a pressa, a curiosidade ou o esquecimento de práticas básicas de segurança.  </p>
+<p>Cada clique, senha e acesso tem impacto direto na segurança de todos. Ao agir com atenção e responsabilidade, o usuário protege não apenas seus próprios dados, mas também os de colegas, clientes e parceiros. A falta de cuidado individual pode comprometer todo um ambiente corporativo, enquanto atitudes conscientes criam uma cultura digital segura e colaborativa. Segurança da informação é um compromisso coletivo — e cada usuário é o primeiro elo dessa corrente, responsável por manter a confiança, a integridade e a continuidade do trabalho de todos. </p>
+
+    <!--<div class="video-wrapper">
+      <iframe data-src="https://www.youtube.com/embed/farhUf3-1XE?rel=0&modestbranding=1&playsinline=1"
+              src="about:blank" loading="lazy" decoding="async"
+              allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
+              allowfullscreen></iframe>
+    </div>-->
   </div>
 
-
+  <!-- 🪐 Boas Práticas (ajustada com lista) -->
   <div id="planet-3" style="display:none;">
     <h2>Boas Práticas.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Illo perferendis reiciendis iusto! Vel reprehenderit harum, ea nihil labore beatae nesciunt? Exercitationem porro, quam iure sed similique veritatis voluptatem laboriosam minus. Autem eaque nam voluptate molestiae architecto asperiores deserunt non rem, atque odio inventore! Blanditiis officia eaque porro. Repudiandae non natus praesentium obcaecati dolorum corporis. Ex quod tempora aliquam reprehenderit, quae atque laudantium omnis, consequatur distinctio nostrum possimus quo, optio provident at nihil obcaecati. Placeat modi voluptas optio, iste ullam quia animi saepe dolor tenetur possimus eum iusto molestiae aspernatur doloremque deleniti sit explicabo id enim quis. Voluptatibus optio repellendus nisi!</p>
+
+    <ul class="lista-boas-praticas">
+      <li>Utilize senhas fortes e exclusivas.</li>
+      <li>Evite clicar em links desconhecidos ou baixar arquivos de fontes não confiáveis.</li>
+      <li>Faça backups regulares dos seus dados importantes, preferencialmente em nuvem e em um dispositivo físico.</li>
+      <li>Use antivírus atualizado e evite compartilhar dispositivos sem necessidade. Tenha atenção ao uso de redes Wi-Fi públicas.</li>
+      <li>Pequenas atitudes de cuidado e organização digital reduzem riscos e aumentam a eficiência no trabalho, protegendo suas informações e garantindo uma experiência tecnológica mais segura e confiável.</li>
+    </ul>
+
     <div class="video-wrapper">
-      <iframe 
-        data-src="https://www.youtube.com/embed/wnhvanMdx4s?rel=0&modestbranding=1&playsinline=1"
-        src="about:blank"
-        loading="lazy"
-        decoding="async"
-        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
-        allowfullscreen></iframe>
+      <iframe data-src="https://www.youtube.com/embed/AT-4bPs27ic?rel=0&modestbranding=1&playsinline=1"
+              src="about:blank" loading="lazy" decoding="async"
+              allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
+              allowfullscreen></iframe>
     </div>
   </div>
 
- 
-  <div id="planet-4" style="display:none;">
-    <h2>Equipamentos.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ut architecto quibusdam fuga. Ratione vitae distinctio sunt dolor debitis quisquam aliquam culpa quod deleniti enim incidunt perferendis, odit esse dolore tempore, dicta voluptatem eum, ducimus neque doloremque saepe omnis minus. Corrupti veniam et deleniti quam recusandae porro quaerat, ipsum nesciunt tempore ipsam modi, itaque blanditiis esse. Sit corporis qui officia repellat odit, similique quia provident tempore iure doloribus dolore delectus quidem dignissimos doloremque ad optio, voluptatum quam cupiditate omnis sequi vitae earum. Molestias repellat, sequi repellendus excepturi vitae placeat consequatur labore eum quia magnam hic incidunt voluptates sapiente dignissimos quibusdam atque?</p>
-    <div class="video-wrapper">
-      <iframe 
-        data-src="https://www.youtube.com/embed/X-XZx1o_w-A?rel=0&modestbranding=1&playsinline=1"
-        src="about:blank"
-        loading="lazy"
-        decoding="async"
-        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
-        allowfullscreen></iframe>
-    </div>
-  </div>
+<div id="planet-4" style="display:none;">
+  <h2>Equipamentos.</h2>
 
-  
+<p>Os equipamentos de tecnologia — como notebooks, celulares corporativos, monitores e periféricos — são ferramentas essenciais para o bom desempenho das atividades diárias. Para garantir a organização, o controle e a segurança do ambiente de TI, todas as solicitações relacionadas a equipamentos devem ser realizadas exclusivamente por meio do sistema <strong>SAT (Sistema de Atendimento em Tecnologia)</strong>, disponível em <a href="https://sat.dreamfactory.com.br" target="_blank" rel="noopener noreferrer">https://sat.dreamfactory.com.br</a>.</p>
+<p>Caso o colaborador precise de um novo equipamento, a solicitação deve ser feita abrindo um chamado no SAT, informando a necessidade e a justificativa. Para trocas de equipamentos (por exemplo, substituição de um notebook antigo ou celular com mau funcionamento), o mesmo procedimento se aplica — sempre via sistema, com a devida autorização do gestor e da área de TI.</p>
+<p>Em situações de reparo ou defeito, o chamado no SAT deve conter o máximo de detalhes possíveis sobre o problema apresentado, permitindo um diagnóstico rápido e preciso. A equipe técnica avaliará se o reparo pode ser feito internamente ou se será necessário o envio para manutenção especializada.</p>
+<p>Zelar pelos equipamentos é uma responsabilidade individual e coletiva. Manter os dispositivos limpos, protegidos contra quedas, líquidos e altas temperaturas, além de utilizá-los apenas para fins profissionais, prolonga sua vida útil e reduz custos para a empresa. O cuidado diário demonstra comprometimento com os recursos disponibilizados e contribui para um ambiente tecnológico mais eficiente, seguro e sustentável.<br>
+<strong>Lembre-se:</strong> qualquer necessidade envolvendo equipamentos deve sempre começar com a abertura de um chamado no <a href="https://sat.dreamfactory.com.br" target="_blank" rel="noopener noreferrer">SAT – Sistema de Atendimento em Tecnologia</a>.</p>
+
+</div>
+
   <div id="planet-5" style="display:none;">
     <h2>Acesso ao Escritório.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Omnis dolorem placeat quaerat rem totam modi explicabo adipisci nobis corpos praesentium quibusdam ipsum facilis sequi vel eum, obcaecati labore provident suscipit non expedita ea maxime quas! Quos similique cumque pariatur? Autem quam eum doloremque necessitatibus blanditiis cum labore earum impedit, facilis iusto enim ab doloribus. Odio eveniet ex minima labore perferendis, aperiam dolorum voluptatum omnis rem facere inventore nemo adipisci eaque consequatur voluptates ipsum, natus quas harum illum possimus alias dicta? Eaque iste corrupti eligendi voluptas quo labore consequuntur cum cumque tempore autem. Placeat dolores facere laudantium ad. Error, nemo nam?</p>
-    <div class="video-wrapper">
-      <iframe 
-        data-src="https://www.youtube.com/embed/ztVV54sPOns?rel=0&modestbranding=1&playsinline=1"
-        src="about:blank"
-        loading="lazy"
-        decoding="async"
-        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
-        allowfullscreen></iframe>
-    </div>
+    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit...</p>
   </div>
-
 
   <div id="planet-7" style="display:none;">
     <h2>Biblioteca de Recursos.</h2>
-    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Perferendis id quidem possimus officia cumque ex rem voluptas velit, delectus ipsa quam eius quia temporibus nemo modi distinctio sequi eum unde. Quos cum dolores iusto excepturi alias mollitia accusamus dolorum distinctio perspiciatis ullam. Similique obcaecati magnam ipsum repellendus reprehenderit officia, ea nobis, deserunt deleniti incidunt, atque aspernatur saepe in praesentium modi dicta recusandae quasi itaque eligendi libero quos cumque accusantium corporis ipsa. Ea aperiam, debitis repudiandae explicabo ipsa, cum nemo et adipisci ipsum natus omnis nisi praesentium laborum vero rerum exercitationem saepe ut similique maxime! Vel dignissimos excepturi praesentium debitis numquam.</p>
-    <div class="video-wrapper">
-      <iframe 
-        data-src="https://www.youtube.com/embed/SdRmTQd2zks?rel=0&modestbranding=1&playsinline=1"
-        src="about:blank"
-        loading="lazy"
-        decoding="async"
-        allow="accelerometer; gyroscope; picture-in-picture; encrypted-media"
-        allowfullscreen></iframe>
-    </div>
+    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit...</p>
   </div>
 
-  <!-- Tooltip escrito (para nomes dos planetas) -->
+  <!-- Tooltip -->
   <div id="tooltip"></div>
   <div id="tipping"></div>
 
-  <button id="reset-orbit">Zerar Órbita</button>
+  <img id="reset-orbit" src="IMGS/orbita.webp" alt="Zerar Órbita" title="Zerar Órbita" onerror="this.src='IMGS/orbita.png'">
 
   <footer>
     © 2025 Criado no Laboratório de Tecnologia da Dream Factory - Todos os direitos reservados
   </footer>
 
-  <!-- LOADING OVERLAY -->
   <div id="loading"></div>
 
-  <!-- IMPORTMAP PARA THREE.JS -->
+  <!-- Importmap Three.js -->
   <script type="importmap">{
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -253,18 +270,16 @@
     }
   }</script>
 
-
   <script type="module" src="universo.js"></script>
 
-  <!-- Lazy YouTube iframe loader -->
+  <!-- Lazy load vídeos -->
   <script>
-    // Minimal IO-based lazy loader for iframes
     (function(){
       const iframes = document.querySelectorAll('iframe[data-src]');
       const onIntersect = (entries, obs) => {
         for (const e of entries) if (e.isIntersecting) {
           const el = e.target;
-          el.src = el.dataset.src; // set real src on view
+          el.src = el.dataset.src;
           el.removeAttribute('data-src');
           obs.unobserve(el);
         }
@@ -272,7 +287,7 @@
       const io = 'IntersectionObserver' in window ?
         new IntersectionObserver(onIntersect, { rootMargin: '200px' }) : null;
       if (io) iframes.forEach(i => io.observe(i));
-      else iframes.forEach(i => i.src = i.dataset.src); // fallback
+      else iframes.forEach(i => i.src = i.dataset.src);
     })();
   </script>
 
