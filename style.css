@@ -1,9 +1,12 @@
-
 body {
   margin: 0;
   overflow: hidden;
   cursor: default;
   background: black;
+  font-family: 'Montserrat', 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 canvas { display: block; }
@@ -14,15 +17,23 @@ footer {
   left: 0;
   width: 100%;
   background: #0088ff;
-  color: #000000;
+  color: #000;
   text-align: center;
   padding: 3px 0;
-  font-family: 'Brown', serif;
+  font-family: 'Montserrat', sans-serif;
   font-size: 12px;
   z-index: 200;
 }
 
+/* Titulações */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.5px;
+}
 
+/* ============================================
+   PAINÉIS DE CONTEÚDO
+   ============================================ */
 .planet-panel {
   position: fixed;
   left: 50%;
@@ -31,7 +42,7 @@ footer {
   width: 70vw;
   max-width: 900px;
   height: 95vh;
-  background: rgba(0, 0, 0, 0.70);
+  background: rgba(0, 0, 0, 0.7);
   border: 1px solid #0088ff;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
@@ -40,119 +51,23 @@ footer {
   padding: 20px;
   box-sizing: border-box;
   color: #fff;
-  font-family: 'Brown', serif;
+  font-family: 'Montserrat', sans-serif;
   overflow-y: auto;
 }
 
-/* quando aberto */
+/* 🔹 Todos os parágrafos dos painéis com 16px */
+.planet-panel p {
+  font-size: 16px;
+  line-height: 1.7;
+  margin-bottom: 14px;
+  font-family: 'Montserrat', sans-serif;
+  color: #ffffff;
+}
+
+/* Quando painel aberto */
 .planet-panel.open {
   transform: translate(-50%, 0);
-  /* espaço extra para o logo fixo não cobrir conteúdo */
   padding-bottom: 80px;
-}
-
-/*
-   LOGO HOLOGRÁFICO (rolável junto ao conteúdo)
-
-.planet-panel.open::after {
-  content: "";
-  display: block;
-  width: 110px;
-  height: 110px;
-  margin-right: 50px; 
-  margin-top: 50px;
-  background: url('IMGS/logo.png') no-repeat center / contain;
-  opacity: 0;
-  pointer-events: none;
-  filter: brightness(1.25) contrast(1.2);
-  animation: hologramOff 0.3s forwards;
-}*/
-
-/* Logo aparece ao atingir 85% do scroll */
-.planet-panel.open.show-logo::after {
-  opacity: 1;
-  animation: hologramOn 0.8s forwards;
-}
-
-/* Loop de scale quando usuário toca/passa o mouse */
-.planet-panel.open.show-logo.logo-zooming::after {
-  animation: logoPulse 1.6s infinite ease-in-out;
-}
-
-/* Entrada */
-@keyframes hologramOn {
-  0%   { opacity: 0; transform: scale(0.9); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-/* Saída */
-@keyframes hologramOff {
-  from { opacity: 1; }
-  to   { opacity: 0; }
-}
-
-/* Pulso contínuo */
-@keyframes logoPulse {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-/* Sobreposição das scanlines horizontais — pseudo extra 
-.planet-panel.open::before {
-  content: "";
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  width: 35px;
-  height: 35px;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1001;
-  /* linhas horizontais finas (scanlines) 
-  background-image:
-    repeating-linear-gradient(
-      to bottom,
-      rgba(0,255,255,0.28) 0px,
-      rgba(0,255,255,0.28) 1px,
-      rgba(0,255,255,0.06) 2px,
-      rgba(0,255,255,0.06) 4px
-    );
-  mix-blend-mode: screen; /* fusão "holográfica" 
-  animation: hologramOff 0.3s forwards;
-}*/
-
-/* Ao atingir 85% de scroll, o JS adiciona .show-logo */
-.planet-panel.open.show-logo::after {
-  animation: hologramOn 0.8s forwards;
-}
-
-.planet-panel.open.show-logo::before {
-  animation: scanlinesOn 0.8s forwards;
-}
-
-/* Anima a entrada do logo (sem glow, estilo holograma clean) */
-@keyframes hologramOn {
-  0%   { opacity: 0; transform: translateY(6px) scale(0.98); filter: brightness(1.3) contrast(1.3); }
-  20%  { opacity: 1; transform: translateY(3px) scale(1.00); }
-  40%  { opacity: .9; }
-  60%  { opacity: .95; }
-  100% { opacity: .97; transform: translateY(0) scale(1.0); }
-}
-
-/* Saída suave */
-@keyframes hologramOff {
-  from { opacity: .97; }
-  to   { opacity: 0; }
-}
-
-/* Scanlines horizontais "ligando", com leve flicker */
-@keyframes scanlinesOn {
-  0%   { opacity: 0; transform: translateY(8px); }
-  15%  { opacity: .6; transform: translateY(4px); }
-  30%  { opacity: .85; transform: translateY(2px); }
-  60%  { opacity: .7; }
-  100% { opacity: .8; transform: translateY(0); }
 }
 
 /* Botão fechar */
@@ -166,14 +81,14 @@ footer {
   background: #222;
   color: #0088ff;
   border-radius: 4px;
-  font-family: 'Brown', serif;
+  font-family: 'Space Grotesk', sans-serif;
 }
 
-
+/* Tooltip */
 #tipping {
   position: absolute;
   padding: 2px 8px;
-  font-family: 'Courier New', monospace;
+  font-family: 'Space Grotesk', monospace;
   font-size: 18px;
   color: #0088ff;
   background: rgba(0, 0, 0, 0.6);
@@ -187,35 +102,49 @@ footer {
   z-index: 30;
 }
 
-#reset-orbit {
-  margin-bottom: 20px;
-  padding: 8px 16px;
-  cursor: pointer;
-  background: #222;
+/* ============================================
+   LISTA DE BOAS PRÁTICAS
+   ============================================ */
+.lista-boas-praticas {
+  margin: 20px 0 30px;
+  padding-left: 30px;
+  list-style-type: disc;
+  line-height: 1.7;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px; /* 🔹 Mesmo tamanho de texto */
+  color: #ffffff;
+}
+
+.lista-boas-praticas li {
+  margin-bottom: 10px;
+}
+
+.lista-boas-praticas li::marker {
   color: #0088ff;
-  border: 1px solid #0088ff;
-  border-radius: 4px;
-  font-family: 'Brown', serif;
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 15;
+  font-size: 18px;
 }
 
-
-#loading {
-  position: fixed; top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: black;
-  z-index: 60;
-  pointer-events: none;
-  opacity: 1;
-  transition: opacity 2s ease;
+/* ============================================
+   OUTRAS LISTAS (sem marcadores)
+   ============================================ */
+.planet-panel ul:not(.lista-boas-praticas) {
+  list-style: none;
+  padding-left: 0;
+  margin: 20px 0 30px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #ffffff;
 }
 
+.planet-panel ul:not(.lista-boas-praticas) li {
+  margin-bottom: 10px;
+}
 
+/* ============================================
+   MOBILE
+   ============================================ */
 @media (max-width: 768px) {
-
   .planet-panel {
     position: fixed !important;
     bottom: 0 !important;
@@ -224,23 +153,18 @@ footer {
     right: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: 89vh !important;      /* usado no JS para calcular o topo do painel */
+    height: 89vh !important;
     border-radius: 18px 18px 0 0;
     transform: translateY(100%) !important;
   }
 
   .planet-panel.open {
     transform: translateY(0) !important;
-    padding-bottom: 80px; /* mantém espaço para o logo também no mobile */
+    padding-bottom: 80px;
   }
 
-  #reset-orbit {
-    top: auto;
-    bottom: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 70%;
-    padding: 7px 14px;
+  .planet-panel p {
+    font-size: 15px; /* 🔸 ligeiro ajuste no mobile pra leitura */
   }
 
   footer {
@@ -253,14 +177,6 @@ footer {
     padding: 5px 11px;
   }
 
-  /* Impede gestos nativos (pinch/scroll) no WebGL;
-     o painel continua rolável normalmente */
-  canvas {
-    touch-action: none;
-  }
-
-  /* Desativa tooltip no mobile de forma contundente */
-  #tipping {
-    display: none !important;
-  }
+  canvas { touch-action: none; }
+  #tipping { display: none !important; }
 }
