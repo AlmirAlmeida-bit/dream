@@ -150,6 +150,15 @@ function startLoadingFade() {
   fadeStartTime = performance.now();
   loadingDiv.style.transition = `opacity ${loadingFadeDuration}ms ease`;
   loadingDiv.style.opacity = '0';
+  
+  // Mostra o footer junto com o fade
+  const footer = document.querySelector('footer');
+  if (footer) {
+    setTimeout(() => {
+      footer.classList.add('show');
+    }, 500); // delay de 500ms para sincronizar com o fade
+  }
+  
   setTimeout(() => {
     if (loadingDiv.parentNode) loadingDiv.remove();
   }, loadingFadeDuration + 50);
@@ -321,10 +330,14 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 const cameraOriginalZ = 20;
 camera.position.set(0, 0, cameraOriginalZ);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ 
+  antialias: !isChromeAndroid, // desabilita antialias no Chrome Android para melhor performance
+  powerPreference: "high-performance"
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 // Cap pixel ratio to reduce GPU load on high-DPI displays
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isChromeAndroid ? 1.0 : 1.5));
+renderer.shadowMap.enabled = false; // desabilita shadows para melhor performance
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.AmbientLight(0x404040));
@@ -451,11 +464,15 @@ let isMobileStackMode = false;
 let isHalfStackMode = false;
 
 let hasRunMobileIntro = false;
-const mobileLapDuration = 2800;
-const mobileStackDuration = 900;
+const mobileExpandDuration = 1000; // duração da expansão (saída) - mais rápida
+const mobileRotateDuration = 1500; // duração da rotação - mais rápida
+const mobileReturnDuration = 1000; // duração do retorno - mais rápida
 
-// EASING "Apple Smooth"
-function appleEase(t) { return 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, t))); }
+// EASING otimizado para melhor performance
+function appleEase(t) { 
+  const clamped = Math.min(1, Math.max(0, t));
+  return 0.5 - 0.5 * Math.cos(Math.PI * clamped);
+}
 
 let mobileIntro = {
   active: false,
@@ -464,17 +481,36 @@ let mobileIntro = {
   baseAngles: [],
   orbitR: [],
   fromPos: [],
-  toPos: []
+  toPos: [],
+  originalPositions: [] // armazena as posições originais dos planetas
 };
 
-// posição do empilhamento (x fixo, y decrescente)
+// posição do empilhamento (x fixo, y decrescente) - MANTIDO PARA COMPATIBILIDADE
 function stackPosByRank(rank) {
   const x = isHalfStackMode ? -5.8 : -4.1;
   const y = 7 - rank * 3.2;
   return new THREE.Vector3(x, y, 0);
 }
 
-// EMPILHAMENTO CUSTOM (7º planeta no topo, depois Chamados…)
+// NOVO: Posicionamento em círculo ao redor do STL para mobile
+function layoutMobileCircular() {
+  const centerX = 0; // centro do STL
+  const centerY = 0;
+  const centerZ = 0;
+  const radius = 6; // raio menor para ficar mais próximo do STL
+  
+  planets.forEach((planet, index) => {
+    // Distribui os planetas uniformemente em um círculo
+    const angle = (index / planets.length) * Math.PI * 2;
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+    const z = centerZ;
+    
+    planet.position.set(x, y, z);
+  });
+}
+
+// EMPILHAMENTO CUSTOM (7º planeta no topo, depois Chamados…) - MANTIDO PARA COMPATIBILIDADE
 function layoutMobileStack() {
   // ordem de exibição no stack (índices do array planets):
   // 6 = novo planeta (Biblioteca), 0..5 = restantes na ordem original
@@ -500,17 +536,15 @@ function layoutDesktopOrbit() {
 function startMobileIntro() {
   if (!isMobileStackMode) return;
   mobileIntro.active = true;
-  mobileIntro.phase = 'lap';
+  mobileIntro.phase = 'expand'; // nova fase: expansão
   mobileIntro.t0 = performance.now();
 
-  mobileIntro.baseAngles = planets.map(() => Math.random() * Math.PI * 2);
-  mobileIntro.orbitR = planets.map((_, i) => 6 + i * 0.7);
-
-  planets.forEach((p, i) => {
-    const a = mobileIntro.baseAngles[i];
-    const r = mobileIntro.orbitR[i];
-    p.position.set(Math.cos(a) * r, Math.sin(a) * r, 0);
-  });
+  // Salva as posições originais dos planetas
+  mobileIntro.originalPositions = planets.map(p => p.position.clone());
+  
+  // Define os ângulos base para a rotação
+  mobileIntro.baseAngles = planets.map((_, i) => (i / planets.length) * Math.PI * 2);
+  mobileIntro.orbitR = planets.map(() => 6); // raio final para rotação
 }
 
 function applyResponsiveScale() {
@@ -551,7 +585,7 @@ function applyResponsiveScale() {
     isMobileStackMode = shouldStack;
     if (isMobileStackMode) {
       isHalfStackMode = false;
-      layoutMobileStack();
+      layoutMobileCircular(); // MUDANÇA: usar layout circular em vez de empilhamento
       if (!hasRunMobileIntro) {
         startMobileIntro();
         hasRunMobileIntro = true;
@@ -560,7 +594,7 @@ function applyResponsiveScale() {
       layoutDesktopOrbit();
     }
   } else {
-    if (isMobileStackMode) layoutMobileStack();
+    if (isMobileStackMode) layoutMobileCircular(); // MUDANÇA: usar layout circular em vez de empilhamento
     else layoutDesktopOrbit();
   }
 
@@ -665,7 +699,7 @@ const rewindData = planets.map(() => ({ startAngle: 0, endAngle: 0 }));
 document.getElementById('reset-orbit').addEventListener('click', () => {
   closePanel();
   if (isMobileStackMode) {
-    isHalfStackMode = true;
+    // Para mobile, reinicia a animação de entrada com layout circular
     startMobileIntro();
     return;
   }
@@ -783,53 +817,98 @@ function animate() {
 
   if (isMobileStackMode) {
     if (mobileIntro.active) {
-      if (mobileIntro.phase === 'lap') {
-        const t = Math.min(1, (now - mobileIntro.t0) / mobileLapDuration);
+      if (mobileIntro.phase === 'expand') {
+        // FASE 1: Expansão (saída suave)
+        const t = Math.min(1, (now - mobileIntro.t0) / mobileExpandDuration);
         const te = appleEase(t);
+        
         planets.forEach((p, i) => {
-          const a = mobileIntro.baseAngles[i] + te * Math.PI * 2;
-          const r = mobileIntro.orbitR[i];
-          p.position.set(Math.cos(a)*r, Math.sin(a)*r, 0);
+          const originalPos = mobileIntro.originalPositions[i];
+          const targetRadius = 8; // raio maior para rotação
+          const targetAngle = mobileIntro.baseAngles[i];
+          const targetX = Math.cos(targetAngle) * targetRadius;
+          const targetY = Math.sin(targetAngle) * targetRadius;
+          const targetZ = 0;
+          
+          // Interpolação suave da posição original para a posição de rotação
+          p.position.x = originalPos.x + (targetX - originalPos.x) * te;
+          p.position.y = originalPos.y + (targetY - originalPos.y) * te;
+          p.position.z = originalPos.z + (targetZ - originalPos.z) * te;
         });
+        
         if (t >= 1) {
-          mobileIntro.phase = 'stacking';
+          mobileIntro.phase = 'rotate';
           mobileIntro.t0 = now;
-          mobileIntro.fromPos = planets.map(p => p.position.clone());
-
-          // destino do empilhamento respeitando ordem customizada
-          isHalfStackMode = true;
-          const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
-          mobileIntro.toPos = order.map((_, rank) => stackPosByRank(rank));
         }
-      } else if (mobileIntro.phase === 'stacking') {
-        const u = Math.min(1, (now - mobileIntro.t0) / mobileStackDuration);
-        const ue = appleEase(u);
-
-        // precisamos aplicar a ordem customizada aqui também
-        const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
-        order.forEach((pIndex, rank) => {
-          const p = planets[pIndex];
-          const from = mobileIntro.fromPos[pIndex];
-          const to   = mobileIntro.toPos[rank];
-          p.position.lerpVectors(from, to, ue);
+      } else if (mobileIntro.phase === 'rotate') {
+        // FASE 2: Rotação ao redor do STL
+        const t = Math.min(1, (now - mobileIntro.t0) / mobileRotateDuration);
+        const rotationAngle = t * Math.PI * 2; // uma volta completa
+        const radius = 8;
+        
+        // Cache do cos/sin para melhor performance
+        const cosAngle = Math.cos(rotationAngle);
+        const sinAngle = Math.sin(rotationAngle);
+        
+        planets.forEach((p, i) => {
+          const baseAngle = mobileIntro.baseAngles[i];
+          const cosBase = Math.cos(baseAngle);
+          const sinBase = Math.sin(baseAngle);
+          
+          // Rotação otimizada usando matriz de rotação
+          const x = (cosBase * cosAngle - sinBase * sinAngle) * radius;
+          const y = (sinBase * cosAngle + cosBase * sinAngle) * radius;
+          
+          p.position.set(x, y, 0);
         });
-
-        if (u >= 1) {
+        
+        if (t >= 1) {
+          mobileIntro.phase = 'return';
+          mobileIntro.t0 = now;
+        }
+      } else if (mobileIntro.phase === 'return') {
+        // FASE 3: Retorno suave para posição original
+        const t = Math.min(1, (now - mobileIntro.t0) / mobileReturnDuration);
+        const te = appleEase(t);
+        
+        planets.forEach((p, i) => {
+          const originalPos = mobileIntro.originalPositions[i];
+          const currentPos = p.position;
+          
+          // Interpolação otimizada usando lerp
+          p.position.lerpVectors(currentPos, originalPos, te);
+        });
+        
+        if (t >= 1) {
           mobileIntro.active = false;
           mobileIntro.phase = 'idle';
-          layoutMobileStack();
+          // Garante que os planetas voltem exatamente para as posições originais
+          planets.forEach((p, i) => {
+            p.position.copy(mobileIntro.originalPositions[i]);
+          });
         }
       }
     } else {
-      // Levitação suave no mobile
+      // Levitação suave no mobile - apenas flutuação, sem rotação
       if (!panelOpen) {
-        const time = now * 0.001;
-        const order = planets.length === 7 ? [6,0,1,2,3,4,5] : planets.map((_, i) => i);
-        order.forEach((pIndex, rank) => {
-          const p = planets[pIndex];
-          const amp = 0.45, freq = 0.9, phase = rank * 0.8;
-          const baseY = 7 - rank * 3.2;
-          p.position.y = baseY + Math.sin(time * freq + phase) * amp;
+        const time = now * 0.0008; // frequência reduzida para menos cálculos
+        const radius = 6; // raio fixo próximo ao STL
+        
+        // Cache dos ângulos base para evitar recálculos
+        if (!mobileIntro.baseAngles || mobileIntro.baseAngles.length === 0) {
+          mobileIntro.baseAngles = planets.map((_, i) => (i / planets.length) * Math.PI * 2);
+        }
+        
+        planets.forEach((p, index) => {
+          const baseAngle = mobileIntro.baseAngles[index];
+          const amp = 0.3; // amplitude reduzida para movimento mais suave
+          const freq = 0.4; // frequência mais lenta
+          const phase = index * 0.6; // fase reduzida
+          
+          const x = Math.cos(baseAngle) * radius;
+          const y = Math.sin(baseAngle) * radius + Math.sin(time * freq + phase) * amp;
+          
+          p.position.set(x, y, 0);
         });
       }
     }
