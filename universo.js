@@ -752,20 +752,41 @@ function createMobilePlanetLabels() {
   planets.forEach((planet, index) => {
     const label = document.createElement('div');
     label.className = 'mobile-planet-label';
-    label.textContent = planetNames[index];
+    
+    // Quebra nomes com mais de duas palavras em exatamente duas linhas
+    const name = planetNames[index];
+    const words = name.split(' ');
+    
+    const isMultiLine = words.length > 2;
+    
+    if (isMultiLine) {
+      // Divide em exatamente duas linhas: primeira palavra em cima, resto embaixo
+      const firstLine = words[0];
+      const secondLine = words.slice(1).join(' ');
+      label.innerHTML = `<div style="display: block; line-height: 1.2;">${firstLine}</div><div style="display: block; line-height: 1.2;">${secondLine}</div>`;
+    } else {
+      label.textContent = name;
+    }
+    
     label.style.cssText = `
       position: absolute;
       color: #0088ff;
       font-family: 'Montserrat', sans-serif;
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 300;
       text-align: center;
-      white-space: nowrap;
+      line-height: ${isMultiLine ? '1.2' : '1.3'};
+      white-space: ${isMultiLine ? 'normal' : 'nowrap'};
       text-shadow: 0 2px 4px rgba(0,0,0,0.8);
       opacity: 0;
-      transform: scale(0);
+      transform: scale(0) translateX(-50%);
+      transform-origin: center center;
       transition: opacity 0.3s ease, transform 0.3s ease;
       pointer-events: none;
+      width: ${isMultiLine ? '120px' : 'max-content'};
+      max-width: 120px;
+      word-wrap: break-word;
+      box-sizing: border-box;
     `;
     labelsContainer.appendChild(label);
     mobileIntro.nameLabels.push(label);
@@ -783,6 +804,7 @@ function updateMobilePlanetLabels() {
     if (!label) return;
     
     // Projeta posição 3D do planeta para coordenadas de tela
+    planet.updateMatrixWorld(true); // Garante matriz atualizada
     const vec = new THREE.Vector3().setFromMatrixPosition(planet.matrixWorld);
     vec.project(camera);
     
@@ -790,9 +812,13 @@ function updateMobilePlanetLabels() {
     const py = (-(vec.y) * 0.5 + 0.5) * window.innerHeight;
     
     // Posiciona label abaixo do planeta (offset Y positivo)
+    // Usa left e top fixos, transform apenas para scale e centralização
+    // Sempre usa translateX(-50%) para centralizar horizontalmente
+    const zoomScale = planet.userData.zoomScale || 1;
     label.style.left = `${px}px`;
     label.style.top = `${py + 40}px`; // 40px abaixo do planeta
-    label.style.transform = `translateX(-50%) scale(${planet.userData.zoomScale || 1})`;
+    label.style.transform = `translateX(-50%) translateY(0) scale(${zoomScale})`;
+    label.style.transformOrigin = 'center center';
   });
 }
 
@@ -1311,7 +1337,8 @@ function animate() {
           const label = mobileIntro.nameLabels[i];
           if (label) {
             label.style.opacity = String(te); // fade in: 0 -> 1
-            label.style.transform = `translateX(-50%) scale(1)`;
+            label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
+            label.style.transformOrigin = 'center center';
           }
         });
         
@@ -1329,7 +1356,8 @@ function animate() {
             const label = mobileIntro.nameLabels[i];
             if (label) {
               label.style.opacity = '1';
-              label.style.transform = `translateX(-50%) scale(1)`;
+              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
+              label.style.transformOrigin = 'center center';
             }
           });
         }
@@ -1368,7 +1396,8 @@ function animate() {
             const label = mobileIntro.nameLabels[i];
             if (label) {
               label.style.opacity = String(1 - te); // fade out: 1 -> 0
-              label.style.transform = `translateX(-50%) scale(1)`;
+              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
+              label.style.transformOrigin = 'center center';
             }
           });
         } else if (elapsed < mobileResetOpenDuration + mobileResetRotateDuration) {
@@ -1400,7 +1429,8 @@ function animate() {
             const label = mobileIntro.nameLabels[i];
             if (label) {
               label.style.opacity = '0';
-              label.style.transform = `translateX(-50%) scale(1)`;
+              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
+              label.style.transformOrigin = 'center center';
             }
           });
         } else if (elapsed < mobileResetOpenDuration + mobileResetRotateDuration + mobileResetReturnDuration) {
@@ -1428,7 +1458,8 @@ function animate() {
             const label = mobileIntro.nameLabels[i];
             if (label) {
               label.style.opacity = '0';
-              label.style.transform = `translateX(-50%) scale(1)`;
+              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
+              label.style.transformOrigin = 'center center';
             }
           });
         } else {
@@ -1481,7 +1512,8 @@ function animate() {
           const label = mobileIntro.nameLabels[index];
           if (label && label.style.opacity !== '1') {
             label.style.opacity = '1';
-            label.style.transform = `translateX(-50%) scale(1)`;
+            label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
+            label.style.transformOrigin = 'center center';
           }
         });
       } else {
