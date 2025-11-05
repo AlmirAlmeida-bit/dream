@@ -104,13 +104,13 @@
       .planet-panel {
         position: fixed !important;
         bottom: 0 !important;
-        top: auto !important;
+        top: 0 !important;
         left: 0 !important;
         right: 0 !important;
         width: 100% !important;
         max-width: 100% !important;
-        height: 89vh !important;
-        border-radius: 18px 18px 0 0;
+        height: 100vh !important;
+        border-radius: 0 !important;
         transform: translateY(100%) !important;
       }
       #reset-orbit {
@@ -118,8 +118,8 @@
         bottom: 60px;
         left: 50%;
         transform: translateX(-50%);
-        width: 90px; /* Tamanho igual aos planetas no mobile */
-        height: 90px; /* Tamanho igual aos planetas no mobile */
+        width: 130px; /* Tamanho aumentado para melhor proporcionalidade no mobile */
+        height: 130px; /* Tamanho aumentado para melhor proporcionalidade no mobile */
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         opacity: 0.9;
         object-fit: contain;
