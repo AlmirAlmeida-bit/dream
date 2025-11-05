@@ -388,6 +388,13 @@ loaderSTL.load('IMGS/Trestech.stl', geometry => {
     mesh.scale.copy(mesh.userData.originalScale.clone().multiplyScalar(pendingMeshScaleFactor));
     pendingMeshScaleFactor = null;
   }
+  
+  // Ajusta posição Y do STL se já estiver em modo mobile
+  const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+  const safeWidth = width > 0 ? width : 768;
+        if (safeWidth <= 768) {
+          mesh.position.y = 3.5; // offset Y no mobile
+        }
 }, undefined, () => setTimeout(() => startLoadingFade(), 3000));
 
 /* Base de Tooltip (DOM)*/
@@ -563,9 +570,9 @@ let isMobileStackMode = false;
 let isHalfStackMode = false;
 
 let hasRunMobileIntro = false;
-const mobileLineDuration = 1500; // duração para entrar em fila
+const mobileLineDuration = 2000; // duração aumentada para transição mais suave
 const mobileCirandaDuration = 2000; // duração para começar a ciranda
-const mobileResetOpenDuration = 1000; // duração para abrir no reset
+const mobileResetOpenDuration = 1500; // duração aumentada para transição mais suave
 const mobileResetRotateDuration = 2000; // duração da rotação no reset
 const mobileResetReturnDuration = 1500; // duração do retorno no reset
 
@@ -609,7 +616,9 @@ let mobileIntro = {
   cirandaRadius: 6, // raio da ciranda
   cirandaSpeed: 0.002, // velocidade da ciranda
   cirandaAngle: 0, // ângulo atual da ciranda
+  cirandaYOffset: 3.5, // offset Y para subir a ciranda no mobile (cria distância do botão)
   cirandaStartAngles: [], // ângulos salvos para o reset
+  cirandaStartPositions: [], // posições reais salvos para o reset (evita tranco)
   cirandaPaused: false, // flag para pausar a ciranda quando planeta é tocado
   nameLabels: [] // elementos DOM para nomes dos planetas no mobile
 };
@@ -624,7 +633,7 @@ function stackPosByRank(rank) {
 // NOVO: Posicionamento em círculo ao redor do STL para mobile
 function layoutMobileCircular() {
   const centerX = 0; // centro do STL
-  const centerY = 0;
+  const centerY = 3.5; // deslocado para cima para criar distância do botão
   const centerZ = 0;
   const radius = 6; // raio menor para ficar mais próximo do STL
   
@@ -668,8 +677,14 @@ function startMobileIntro() {
   mobileIntro.phase = 'line'; // começa entrando em fila
   mobileIntro.t0 = performance.now();
 
+  // Garante que as posições dos planetas estejam atualizadas antes de salvar
+  planets.forEach(p => p.updateMatrixWorld(true));
+  
   // Salva posições iniciais dos planetas (onde estão agora)
-  mobileIntro.initialPositions = planets.map(p => p.position.clone());
+  mobileIntro.initialPositions = planets.map(p => {
+    const pos = p.position.clone();
+    return pos;
+  });
 
   // Distribuição aleatória: 3 na esquerda e 4 na direita, ou 4 na esquerda e 3 na direita
   const leftCount = Math.random() < 0.5 ? 3 : 4; // aleatório: 3 ou 4
@@ -694,11 +709,14 @@ function startMobileIntro() {
   const leftSpacing = leftCount === 3 ? 3.5 : 2.5; // maior espaçamento para 3 planetas
   const rightSpacing = rightCount === 3 ? 3.5 : 2.5; // maior espaçamento para 3 planetas
   
+  // Offset Y adicional para subir tudo no mobile (cria distância do botão)
+  const mobileYOffset = 3.5;
+  
   // Calcula offset Y para centralizar verticalmente
   const leftTotalHeight = (leftCount - 1) * (leftCount === 3 ? 3.5 : 2.5);
   const rightTotalHeight = (rightCount - 1) * (rightCount === 3 ? 3.5 : 2.5);
-  const leftStartY = 6 - (leftTotalHeight / 2); // centraliza verticalmente
-  const rightStartY = 6 - (rightTotalHeight / 2); // centraliza verticalmente
+  const leftStartY = 6 - (leftTotalHeight / 2) + mobileYOffset; // centraliza verticalmente + offset
+  const rightStartY = 6 - (rightTotalHeight / 2) + mobileYOffset; // centraliza verticalmente + offset
   
   mobileIntro.queuePositions = planets.map((p, i) => {
     const isLeft = mobileIntro.queueDistribution[i];
@@ -719,11 +737,11 @@ function startMobileIntro() {
 }
 
 // Função para reset no mobile: abre, gira e volta para fila
-// Cria labels de nomes dos planetas no mobile
+// Labels de nomes dos planetas no mobile DESABILITADOS (poluição visual)
 function createMobilePlanetLabels() {
   if (!isMobileStackMode) return;
   
-  // Remove labels existentes
+  // Remove labels existentes se houver
   mobileIntro.nameLabels.forEach(label => {
     if (label && label.parentNode) {
       label.parentNode.removeChild(label);
@@ -731,68 +749,8 @@ function createMobilePlanetLabels() {
   });
   mobileIntro.nameLabels = [];
   
-  // Cria container para os labels
-  let labelsContainer = document.getElementById('mobile-planet-labels');
-  if (!labelsContainer) {
-    labelsContainer = document.createElement('div');
-    labelsContainer.id = 'mobile-planet-labels';
-    labelsContainer.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 10;
-    `;
-    document.body.appendChild(labelsContainer);
-  }
-  
-  // Cria label para cada planeta
-  planets.forEach((planet, index) => {
-    const label = document.createElement('div');
-    label.className = 'mobile-planet-label';
-    
-    // Quebra nomes com mais de duas palavras em exatamente duas linhas
-    const name = planetNames[index];
-    const words = name.split(' ');
-    
-    const isMultiLine = words.length > 2;
-    
-    if (isMultiLine) {
-      // Divide em exatamente duas linhas: primeira palavra em cima, resto embaixo
-      const firstLine = words[0];
-      const secondLine = words.slice(1).join(' ');
-      label.innerHTML = `<div style="display: block; line-height: 1.2;">${firstLine}</div><div style="display: block; line-height: 1.2;">${secondLine}</div>`;
-    } else {
-      label.textContent = name;
-    }
-    
-    label.style.cssText = `
-      position: absolute;
-      color: #0088ff;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 12px;
-      font-weight: 300;
-      text-align: center;
-      line-height: ${isMultiLine ? '1.2' : '1.3'};
-      white-space: ${isMultiLine ? 'normal' : 'nowrap'};
-      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-      opacity: 0;
-      transform: scale(0) translateX(-50%);
-      transform-origin: center center;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      pointer-events: none;
-      width: ${isMultiLine ? '120px' : 'max-content'};
-      max-width: 120px;
-      word-wrap: break-word;
-      box-sizing: border-box;
-    `;
-    labelsContainer.appendChild(label);
-    mobileIntro.nameLabels.push(label);
-    planet.userData.nameLabel = label;
-    planet.userData.zoomScale = 1.0; // escala inicial
-  });
+  // NÃO cria labels no mobile para evitar poluição visual
+  // Labels desabilitados conforme solicitado
 }
 
 // Atualiza posições dos labels seguindo os planetas
@@ -828,10 +786,21 @@ function startMobileReset() {
   mobileIntro.phase = 'reset'; // fase de reset
   mobileIntro.t0 = performance.now();
   
-  // Salva ângulos atuais dos planetas na ciranda
+  // Garante que as posições dos planetas estejam atualizadas antes de salvar
+  planets.forEach(p => p.updateMatrixWorld(true));
+  
+  // Salva posições atuais reais dos planetas (não apenas ângulos)
+  mobileIntro.cirandaStartPositions = planets.map((p, i) => {
+    return p.position.clone(); // salva posição atual real
+  });
+  
+  // Salva ângulos atuais dos planetas na ciranda (ajustado para offset Y)
+  const yOffset = mobileIntro.cirandaYOffset || 3.5;
   mobileIntro.cirandaStartAngles = planets.map((p, i) => {
     const pos = p.position;
-    return Math.atan2(pos.y, pos.x); // ângulo atual de cada planeta
+    // Ajusta o ângulo considerando o offset Y
+    const adjustedY = pos.y - yOffset;
+    return Math.atan2(adjustedY, pos.x); // ângulo atual ajustado
   });
   
   // Cria nova distribuição aleatória para o reset (3 e 4, ou 4 e 3)
@@ -857,11 +826,14 @@ function startMobileReset() {
   const leftSpacing = leftCount === 3 ? 3.5 : 2.5; // maior espaçamento para 3 planetas
   const rightSpacing = rightCount === 3 ? 3.5 : 2.5; // maior espaçamento para 3 planetas
   
+  // Offset Y adicional para subir tudo no mobile (cria distância do botão)
+  const mobileYOffset = 3.5;
+  
   // Calcula offset Y para centralizar verticalmente
   const leftTotalHeight = (leftCount - 1) * (leftCount === 3 ? 3.5 : 2.5);
   const rightTotalHeight = (rightCount - 1) * (rightCount === 3 ? 3.5 : 2.5);
-  const leftStartY = 6 - (leftTotalHeight / 2); // centraliza verticalmente
-  const rightStartY = 6 - (rightTotalHeight / 2); // centraliza verticalmente
+  const leftStartY = 6 - (leftTotalHeight / 2) + mobileYOffset; // centraliza verticalmente + offset
+  const rightStartY = 6 - (rightTotalHeight / 2) + mobileYOffset; // centraliza verticalmente + offset
   
   mobileIntro.queuePositions = planets.map((p, i) => {
     const isLeft = mobileIntro.queueDistribution[i];
@@ -914,6 +886,13 @@ function applyResponsiveScale() {
     const mobileBoost = isMobile ? 1.5 : 1.0;
     const finalScale = isMobile ? mobileScaleFactor * mobileBoost : scaleFactor * mobileBoost;
     mesh.scale.copy(mesh.userData.originalScale.clone().multiplyScalar(finalScale));
+    
+    // Ajusta posição Y do STL no mobile para criar distância do botão
+        if (isMobile) {
+          mesh.position.y = 3.5; // offset Y no mobile
+        } else {
+          mesh.position.y = 0; // posição original no desktop
+        }
   } else {
     pendingMeshScaleFactor = isMobile ? (mobileScaleFactor * 1.3) : (scaleFactor * 1.0);
   }
@@ -1287,16 +1266,19 @@ function animate() {
   if (isMobileStackMode) {
     if (mobileIntro.active) {
       if (mobileIntro.phase === 'line') {
-        // FASE 1: Planetas entram em fila
+        // FASE 1: Planetas entram em fila - transição suave
         const t = Math.min(1, (now - mobileIntro.t0) / mobileLineDuration);
-        const te = appleEase(t);
+        const te = smoothEaseInOut(t); // easing mais suave para transição inicial
         
         planets.forEach((p, i) => {
           const startPos = mobileIntro.initialPositions[i];
           const targetPos = mobileIntro.queuePositions[i];
           
-          // Interpola da posição inicial para a fila
+          // Interpola suave da posição inicial para a fila
           p.position.lerpVectors(startPos, targetPos, te);
+          
+          // Garante que a atualização seja suave
+          p.updateMatrixWorld(false);
         });
         
         if (t >= 1) {
@@ -1323,9 +1305,10 @@ function animate() {
           const circleX = Math.cos(baseAngle) * radius;
           const circleY = Math.sin(baseAngle) * radius;
           
-          // Interpola da fila para o círculo
+          // Interpola da fila para o círculo (com offset Y para subir)
+          const yOffset = mobileIntro.cirandaYOffset || 3.5;
           const x = queuePos.x + (circleX - queuePos.x) * te;
-          const y = queuePos.y + (circleY - queuePos.y) * te;
+          const y = queuePos.y + (circleY + yOffset - queuePos.y) * te;
           p.position.set(x, y, 0);
           
           // Aplica zoom in no planeta (de 0.85 para 1.0)
@@ -1333,13 +1316,7 @@ function animate() {
           const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
           p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
           
-          // Mostra nome (apenas opacity muda)
-          const label = mobileIntro.nameLabels[i];
-          if (label) {
-            label.style.opacity = String(te); // fade in: 0 -> 1
-            label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
-            label.style.transformOrigin = 'center center';
-          }
+          // Nomes desabilitados no mobile (labels não são mais criados)
         });
         
         if (t >= 1) {
@@ -1353,12 +1330,7 @@ function animate() {
             const safeWidth = width > 0 ? width : 768;
             const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
             p.scale.copy(baseScale.clone().multiplyScalar(currentMobileScale * 1.74));
-            const label = mobileIntro.nameLabels[i];
-            if (label) {
-              label.style.opacity = '1';
-              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
-              label.style.transformOrigin = 'center center';
-            }
+            // Nomes desabilitados no mobile
           });
         }
       } else if (mobileIntro.phase === 'reset') {
@@ -1369,7 +1341,7 @@ function animate() {
         if (elapsed < mobileResetOpenDuration) {
           // FASE 1: Abrir (expandir o círculo) - apenas nomes desaparecem
           const t = elapsed / mobileResetOpenDuration;
-        const te = appleEase(t);
+          const te = smoothEaseInOut(t); // easing mais suave para evitar tranco
           const expandedRadius = radius * 1.5; // expande 50%
           
           // Planetas mantêm tamanho quase normal (zoom mínimo de 0.85)
@@ -1380,25 +1352,28 @@ function animate() {
           const safeWidth = width > 0 ? width : 768;
           const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
         
-        planets.forEach((p, i) => {
+          planets.forEach((p, i) => {
+            // Usa posição inicial real para transição suave
+            const startPos = mobileIntro.cirandaStartPositions[i] || p.position.clone();
             const startAngle = mobileIntro.cirandaStartAngles[i];
             const currentRadius = radius + (expandedRadius - radius) * te;
-            const x = Math.cos(startAngle) * currentRadius;
-            const y = Math.sin(startAngle) * currentRadius;
-            p.position.set(x, y, 0);
+            const yOffset = mobileIntro.cirandaYOffset || 3.5;
+            
+            // Calcula posição alvo
+            const targetX = Math.cos(startAngle) * currentRadius;
+            const targetY = Math.sin(startAngle) * currentRadius + yOffset;
+            const targetPos = new THREE.Vector3(targetX, targetY, 0);
+            
+            // Interpola suave da posição atual para a alvo
+            p.position.lerpVectors(startPos, targetPos, te);
+            p.updateMatrixWorld(false);
             
             // Aplica zoom leve no planeta (não fica muito pequeno)
             p.userData.zoomScale = planetZoomScale;
             const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
             p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
             
-            // Esconde apenas o nome (opacity vai para 0)
-            const label = mobileIntro.nameLabels[i];
-            if (label) {
-              label.style.opacity = String(1 - te); // fade out: 1 -> 0
-              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
-              label.style.transformOrigin = 'center center';
-            }
+            // Nomes desabilitados no mobile
           });
         } else if (elapsed < mobileResetOpenDuration + mobileResetRotateDuration) {
           // FASE 2: Girar (rotação completa) - planetas mantêm tamanho, nomes escondidos
@@ -1416,8 +1391,9 @@ function animate() {
           planets.forEach((p, i) => {
             const startAngle = mobileIntro.cirandaStartAngles[i];
             const currentAngle = startAngle + rotationAngle;
+            const yOffset = mobileIntro.cirandaYOffset || 3.5;
             const x = Math.cos(currentAngle) * expandedRadius;
-            const y = Math.sin(currentAngle) * expandedRadius;
+            const y = Math.sin(currentAngle) * expandedRadius + yOffset;
             p.position.set(x, y, 0);
             
             // Mantém tamanho quase normal
@@ -1425,13 +1401,7 @@ function animate() {
             const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
             p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
             
-            // Nome continua escondido
-            const label = mobileIntro.nameLabels[i];
-            if (label) {
-              label.style.opacity = '0';
-              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
-              label.style.transformOrigin = 'center center';
-            }
+            // Nomes desabilitados no mobile
           });
         } else if (elapsed < mobileResetOpenDuration + mobileResetRotateDuration + mobileResetReturnDuration) {
           // FASE 3: Voltar para fila - planetas mantêm tamanho, nomes escondidos
@@ -1454,13 +1424,7 @@ function animate() {
             const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
             p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
             
-            // Nome continua escondido
-            const label = mobileIntro.nameLabels[i];
-            if (label) {
-              label.style.opacity = '0';
-              label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
-              label.style.transformOrigin = 'center center';
-            }
+            // Nomes desabilitados no mobile
           });
         } else {
           // Reset completo - volta para fila e reinicia a ciranda
@@ -1491,11 +1455,12 @@ function animate() {
         
         // Posiciona os planetas na ciranda (mesmo se pausado, mantém na posição atual)
         // Zoom in completo (1.0) quando em idle
+        const yOffset = mobileIntro.cirandaYOffset || 3.5;
         planets.forEach((p, index) => {
           const baseAngle = mobileIntro.baseAngles[index];
           const currentAngle = baseAngle + mobileIntro.cirandaAngle;
           const x = Math.cos(currentAngle) * radius;
-          const y = Math.sin(currentAngle) * radius;
+          const y = Math.sin(currentAngle) * radius + yOffset;
           p.position.set(x, y, 0);
           
           // Garante zoom in completo (1.0) em idle
@@ -1508,13 +1473,7 @@ function animate() {
             p.scale.copy(baseScale.clone().multiplyScalar(currentMobileScale * 1.74));
           }
           
-          // Garante nome visível em idle
-          const label = mobileIntro.nameLabels[index];
-          if (label && label.style.opacity !== '1') {
-            label.style.opacity = '1';
-            label.style.transform = `translateX(-50%) translateY(0) scale(1)`;
-            label.style.transformOrigin = 'center center';
-          }
+          // Nomes desabilitados no mobile
         });
       } else {
         // Se o painel está aberto, também pausa a ciranda
@@ -1615,10 +1574,7 @@ function animate() {
 
   updateHoverTooltip();
 
-  // Atualiza posições dos labels de nomes no mobile
-  if (isMobileStackMode) {
-    updateMobilePlanetLabels();
-  }
+  // Labels de nomes desabilitados no mobile (não atualiza mais)
 
   if (starFieldFar?.userData?.animate) starFieldFar.userData.animate();
 
