@@ -86,8 +86,8 @@
       top: 10px;
       left: 10px;
       z-index: 15;
-      width: 90px;
-      height: 90px;
+      width: 122px; /* Aumentado em 20% adicional (102px * 1.20) */
+      height: 122px; /* Aumentado em 20% adicional (102px * 1.20) */
       cursor: pointer;
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       opacity: 0.9;
@@ -115,11 +115,11 @@
       }
       #reset-orbit {
         top: auto;
-        bottom: 60px;
+        bottom: 85px; /* Abaixado para ficar mais distante dos planetas */
         left: 50%;
         transform: translateX(-50%);
-        width: 130px; /* Tamanho aumentado para melhor proporcionalidade no mobile */
-        height: 130px; /* Tamanho aumentado para melhor proporcionalidade no mobile */
+        width: 110px; /* Tamanho reduzido sutilmente */
+        height: 110px; /* Tamanho reduzido sutilmente */
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         opacity: 0.9;
         object-fit: contain;
