@@ -114,12 +114,12 @@
         transform: translateY(100%) !important;
       }
       #reset-orbit {
-        top: auto;
-        bottom: 85px; /* Abaixado para ficar mais distante dos planetas */
-        left: 50%;
-        transform: translateX(-50%);
-        width: 110px; /* Tamanho reduzido sutilmente */
-        height: 110px; /* Tamanho reduzido sutilmente */
+        top: auto !important;
+        bottom: 36px !important; /* Calculado: footer (~16px altura) + dois corpos de texto (20px) = 36px - parte inferior do botão fica a dois corpos acima do footer */
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 110px !important; /* Tamanho reduzido sutilmente */
+        height: 110px !important; /* Tamanho reduzido sutilmente */
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         opacity: 0.9;
         object-fit: contain;
