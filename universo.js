@@ -1440,7 +1440,44 @@ const STL_DRAG_SENS = 0.0045; // Sensibilidade aumentada para mais fluidez
 function onStlTouchStart(e) {
   if (!isMobileStackMode || !mesh) return;
   if (!e.touches || e.touches.length === 0) return;
+  
   const t = e.touches[0];
+  
+  // PRIMEIRO: Verifica se não está tocando um planeta (prioridade para spinning)
+  const planetHit = intersectAtClient(t.clientX, t.clientY);
+  if (planetHit.length > 0) {
+    // Se tocou em um planeta, não ativa o drag do STL
+    return;
+  }
+  
+  // SEGUNDO: Verifica se o toque está próximo do STL (raio menor)
+  pointer.x = (t.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = (-(t.clientY) / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  
+  // Faz raycast apenas no STL
+  const stlHit = raycaster.intersectObject(mesh);
+  if (stlHit.length === 0) {
+    // Não tocou no STL
+    return;
+  }
+  
+  // TERCEIRO: Verifica se está dentro de um raio menor (reduzido para 60% do tamanho visual)
+  const hitPoint = stlHit[0].point;
+  const stlCenter = new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld);
+  const distanceFromCenter = hitPoint.distanceTo(stlCenter);
+  
+  // Calcula o raio máximo permitido (60% do tamanho do bounding box do STL)
+  const boundingBox = new THREE.Box3().setFromObject(mesh);
+  const stlSize = boundingBox.getSize(new THREE.Vector3());
+  const maxRadius = Math.max(stlSize.x, stlSize.y, stlSize.z) * 0.3; // 30% do maior eixo (raio menor)
+  
+  if (distanceFromCenter > maxRadius) {
+    // Toque está muito longe do centro do STL, não ativa
+    return;
+  }
+  
+  // Se passou todas as verificações, ativa o drag do STL
   stlDrag.active = true;
   stlDrag.lastX = t.clientX;
   stlDrag.lastY = t.clientY;
