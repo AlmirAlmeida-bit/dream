@@ -3,12 +3,49 @@
 /* PATCH MOBILE (Chrome Android)*/
 const isChromeAndroid = /Chrome/i.test(navigator.userAgent) && /Android/i.test(navigator.userAgent);
 
+// Variáveis globais para rewind
+let rewindStartTime = null;
+const rewindDuration = 1800;
+let isRewinding = false;
+let rewindData = [];
+let appStartTime = null; // Tempo de início da aplicação
+
+// Constantes reutilizáveis para otimização
+const MOBILE_SCALE_SMALL = 0.55;
+const MOBILE_SCALE_MEDIUM = 0.7;
+const MOBILE_PLANET_BOOST = 1.74;
+const MOBILE_STL_BOOST = 1.5;
+const MOBILE_PENDING_BOOST = 1.3;
+
 // Initialize Three.js universe on demand
 async function initUniverse() {
   // Dynamic imports for Three.js
   const THREE = await import('three');
   const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
   const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+  
+  // Inicializa constante reutilizável (acessível globalmente dentro do escopo)
+  const VECTOR3_ONE_INSTANCE = new THREE.Vector3(1, 1, 1);
+  
+  // Função helper para calcular largura segura (cacheada)
+  function getSafeWidth() {
+    return Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0) || 768;
+  }
+  
+  // Função helper para calcular mobile scale atual
+  function getCurrentMobileScale() {
+    const safeWidth = getSafeWidth();
+    return safeWidth < 480 ? MOBILE_SCALE_SMALL : MOBILE_SCALE_MEDIUM;
+  }
+  
+  // Função helper para projeção 3D → coordenadas de tela
+  function projectToScreen(vec, camera) {
+    vec.project(camera);
+    return {
+      x: (vec.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-(vec.y) * 0.5 + 0.5) * window.innerHeight
+    };
+  }
 
   /* Utils: sprite circular (estrelas/partículas) + cor média*/
   function createCircleSprite(color = '#ffffff', size = 64) {
@@ -28,6 +65,33 @@ async function initUniverse() {
   tex.minFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
   return tex;
+}
+
+  // Sprite circular mínimo e eficiente para pontos do loading
+  function createDotSprite(size = 16) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const center = size / 2;
+    const radius = center - 1;
+    
+    // Cria um círculo suave com bordas antialiased (branco, cor será aplicada via vertexColors)
+    const grad = ctx.createRadialGradient(center, center, 0, center, center, radius);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.7, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(center, center, radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.needsUpdate = true;
+    return tex;
 }
 
 // (mantido para uso futuro)
@@ -66,6 +130,9 @@ loadingDiv.appendChild(loadingRenderer.domElement);
 
 // Sprite branco reutilizável (também usado no starfield principal)
 const spriteWhite = createCircleSprite('#ffffff', 64);
+// Sprite de ponto circular para loading (pequeno e eficiente)
+// Usamos sprite branco e aplicamos cores via vertexColors para melhor performance
+const dotSpriteWhite = createDotSprite(16);
 
 // Parâmetros do túnel
 const STAR_COUNT   = isChromeAndroid ? 800 : 2000;
@@ -77,6 +144,7 @@ const SPIRAL_SPEED = 0.002;
 
 const starPositions = new Float32Array(STAR_COUNT * 3);
 const starSpeedScale = new Float32Array(STAR_COUNT);
+const starColors = new Float32Array(STAR_COUNT * 3); // RGB para cada estrela
 
 // Distribuição cilíndrica com leve viés para bordas
 for (let i = 0; i < STAR_COUNT; i++) {
@@ -87,17 +155,39 @@ for (let i = 0; i < STAR_COUNT; i++) {
   starPositions[i*3 + 1] = Math.sin(a) * r;
   starPositions[i*3 + 2] = z;
   starSpeedScale[i] = 0.7 + Math.random() * 0.6;
+  
+  // Distribui cores: 60% branco, 20% azul, 20% roxo
+  const rand = Math.random();
+  if (rand < 0.6) {
+    // Branco
+    starColors[i*3] = 1.0;
+    starColors[i*3 + 1] = 1.0;
+    starColors[i*3 + 2] = 1.0;
+  } else if (rand < 0.8) {
+    // Azul
+    starColors[i*3] = 0.2;
+    starColors[i*3 + 1] = 0.6;
+    starColors[i*3 + 2] = 1.0;
+  } else {
+    // Roxo
+    starColors[i*3] = 0.8;
+    starColors[i*3 + 1] = 0.2;
+    starColors[i*3 + 2] = 1.0;
+  }
 }
 
 const loadingGeom = new THREE.BufferGeometry();
 loadingGeom.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+loadingGeom.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
 
 const loadingMat = new THREE.PointsMaterial({
-  size: 0.11,
-  map: spriteWhite,
+  size: 0.12,
+  map: dotSpriteWhite, // Usa sprite branco como base, cor vem do atributo
+  vertexColors: true, // Habilita cores por vértice
   transparent: true,
   depthWrite: false,
-  blending: THREE.AdditiveBlending
+  blending: THREE.AdditiveBlending,
+  sizeAttenuation: true
 });
 
 const starTunnel = new THREE.Points(loadingGeom, loadingMat);
@@ -198,13 +288,21 @@ const planetNames = [
 const planets = [];
 const createdSizes = [];
 
+// Fator de tamanho no desktop (aumento de 5%)
+const DESKTOP_SIZE_FACTOR = 1.05; // Aumenta 5% no desktop
+
 /*Criação dos 5 primeiros planetas com variação de tamanho FIXA*/
 // Variações fixas determinísticas para garantir tamanhos consistentes entre carregamentos
 const sizeVariations = [0.1, 0.3, 0.2, 0.4, 0.5]; // valores fixos para cada planeta
 for (let i = 0; i < 5; i++) {
   const scale = [0.9, 0.75, 0.85, 0.95, 1][i];
   // Tamanho fixo baseado no índice para garantir consistência entre carregamentos
-  const size = (0.45 + sizeVariations[i]) * scale;
+  let size = (0.45 + sizeVariations[i]) * scale;
+  // Aplica aumento de 10% no desktop
+  const isMobile = window.innerWidth <= 768;
+  if (!isMobile) {
+    size = size * DESKTOP_SIZE_FACTOR;
+  }
   createdSizes.push(size);
 
   const geom = new THREE.SphereGeometry(size, 32, 32);
@@ -213,17 +311,24 @@ for (let i = 0; i < 5; i++) {
   const planet = new THREE.Mesh(geom, mat);
 
   planet.userData.index = i + 1;
-  planet.userData.angle = Math.random() * Math.PI * 2;
-  planet.userData.baseSpeed = 0.001 + i * 0.0008;
+  // Distribui ângulos de forma uniforme no desktop para órbita mais organizada
+  const isMobileForOrbit = window.innerWidth <= 768;
+  planet.userData.angle = isMobileForOrbit ? (Math.random() * Math.PI * 2) : ((i / 5) * Math.PI * 2);
+  // Velocidade reduzida no desktop (redução de 30%)
+  const isMobileForSpeed = window.innerWidth <= 768;
+  const speedBase = 0.001 + i * 0.0008;
+  planet.userData.baseSpeed = isMobileForSpeed ? speedBase : speedBase * 0.7;
   planet.userData.speed = planet.userData.baseSpeed;
   // Salva originalScale como (1,1,1) para garantir consistência - o tamanho vem da geometria
-  planet.userData.originalScale = new THREE.Vector3(1, 1, 1);
-  // Para comportamento de enxame (desktop)
+  planet.userData.originalScale = VECTOR3_ONE_INSTANCE.clone();
+  // Para comportamento de enxame (desktop) - reduzido para órbita mais organizada
   planet.userData.minDistance = size * 2.5; // distância mínima entre planetas (2.5x o tamanho)
   planet.userData.radiusOffset = 0; // offset dinâmico para evitar colisões
 
-  const baseDist = 8 + i * 2;
+  // Órbitas mais organizadas no desktop: raios mais uniformes e espaçados
+  const baseDist = isMobileForOrbit ? (8 + i * 2) : (7 + i * 1.8);
   const adjustedRadius = baseDist * 0.5;
+  
   planet.userData.radius = adjustedRadius;
   planet.userData.originalRadius = adjustedRadius;
   planet.position.set(
@@ -237,7 +342,12 @@ for (let i = 0; i < 5; i++) {
 }
 
 /* 6º planeta – Novidades (tamanho médio, com anel)*/
-const avgSize = createdSizes.reduce((a, b) => a + b, 0) / createdSizes.length;
+let avgSize = createdSizes.reduce((a, b) => a + b, 0) / createdSizes.length;
+// Aplica aumento de 10% no desktop
+const isMobileForPlanets = window.innerWidth <= 768;
+if (!isMobileForPlanets) {
+  avgSize = avgSize * DESKTOP_SIZE_FACTOR;
+}
 {
   const i = 5;
   const geom = new THREE.SphereGeometry(avgSize, 32, 32);
@@ -246,17 +356,32 @@ const avgSize = createdSizes.reduce((a, b) => a + b, 0) / createdSizes.length;
   const p6 = new THREE.Mesh(geom, mat);
 
   p6.userData.index = i + 1; // 6
-  p6.userData.angle = Math.random() * Math.PI * 2;
-  p6.userData.baseSpeed = 0.0029;
+  // Distribui ângulo de forma uniforme no desktop
+  const isMobileForOrbit6 = window.innerWidth <= 768;
+  p6.userData.angle = isMobileForOrbit6 ? (Math.random() * Math.PI * 2) : ((i / 7) * Math.PI * 2);
+  // Velocidade reduzida no desktop (redução de 30%)
+  const isMobileForSpeed6 = window.innerWidth <= 768;
+  const speedBase6 = 0.0029;
+  p6.userData.baseSpeed = isMobileForSpeed6 ? speedBase6 : speedBase6 * 0.7;
   p6.userData.speed = p6.userData.baseSpeed;
   // Salva originalScale como (1,1,1) para garantir consistência
-  p6.userData.originalScale = new THREE.Vector3(1, 1, 1);
-  // Para comportamento de enxame (desktop)
+  p6.userData.originalScale = VECTOR3_ONE_INSTANCE.clone();
+  // Para comportamento de enxame (desktop) - reduzido para órbita mais organizada
   p6.userData.minDistance = avgSize * 2.5; // distância mínima entre planetas
   p6.userData.radiusOffset = 0; // offset dinâmico para evitar colisões
 
-  const baseDist = 8 + i * 2;
+  // Órbitas mais organizadas no desktop: raios mais uniformes e espaçados
+  // No desktop, planeta 6 (Saturno/Novidades) tem a órbita mais distante para evitar colisões
+  let baseDist;
+  if (isMobileForOrbit6) {
+    baseDist = 8 + i * 2;
+  } else {
+    // No desktop: planeta 6 fica na posição mais externa (índice 5 de 7 planetas)
+    // Calcula raio maior para o planeta 6
+    baseDist = (7 + 6 * 1.8) + 2.0; // Raio maior que todos os outros
+  }
   const adjustedRadius = baseDist * 0.5;
+  
   p6.userData.radius = adjustedRadius;
   p6.userData.originalRadius = adjustedRadius;
   p6.position.set(
@@ -279,24 +404,39 @@ const avgSize = createdSizes.reduce((a, b) => a + b, 0) / createdSizes.length;
 /* 7º planeta – Biblioteca de Recursos (mesmo comportamento dos demais */
 {
   const i = 6; // sétimo
-  const size = avgSize; // usa o mesmo médio pra consistência
+  let size = avgSize; // usa o mesmo médio pra consistência
+  // O aumento de 10% já foi aplicado no avgSize, então mantém
   const geom = new THREE.SphereGeometry(size, 32, 32);
   const tex = textureLoader.load(planetTextures[i]); // IMGS/planet6.webp
   const mat = new THREE.MeshPhongMaterial({ map: tex, shininess: 20 });
   const p7 = new THREE.Mesh(geom, mat);
 
   p7.userData.index = i + 1; // 7
-  p7.userData.angle = Math.random() * Math.PI * 2;
-  p7.userData.baseSpeed = 0.0018; // velocidade similar aos demais
+  // Distribui ângulo de forma uniforme no desktop
+  const isMobileForOrbit7 = window.innerWidth <= 768;
+  p7.userData.angle = isMobileForOrbit7 ? (Math.random() * Math.PI * 2) : ((i / 7) * Math.PI * 2);
+  // Velocidade reduzida no desktop (redução de 30%)
+  const isMobileForSpeed7 = window.innerWidth <= 768;
+  const speedBase7 = 0.0018;
+  p7.userData.baseSpeed = isMobileForSpeed7 ? speedBase7 : speedBase7 * 0.7;
   p7.userData.speed = p7.userData.baseSpeed;
   // Salva originalScale como (1,1,1) para garantir consistência
-  p7.userData.originalScale = new THREE.Vector3(1, 1, 1);
-  // Para comportamento de enxame (desktop)
+  p7.userData.originalScale = VECTOR3_ONE_INSTANCE.clone();
+  // Para comportamento de enxame (desktop) - reduzido para órbita mais organizada
   p7.userData.minDistance = size * 2.5; // distância mínima entre planetas
   p7.userData.radiusOffset = 0; // offset dinâmico para evitar colisões
 
-  const baseDist = 8 + i * 2;
+  // Órbitas mais organizadas no desktop: raios mais uniformes e espaçados
+  // No desktop, planeta 7 fica antes do planeta 6 (que é o mais distante)
+  let baseDist;
+  if (isMobileForOrbit7) {
+    baseDist = 8 + i * 2;
+  } else {
+    // No desktop: planeta 7 fica antes do planeta 6 (que é o mais distante)
+    baseDist = 7 + (i - 1) * 1.8; // Usa índice ajustado para ficar antes do planeta 6
+  }
   const adjustedRadius = baseDist * 0.5;
+  
   p7.userData.radius = adjustedRadius;
   p7.userData.originalRadius = adjustedRadius;
   p7.position.set(
@@ -363,10 +503,43 @@ scene.add(light);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
+// Inicializa rewindData após os planetas serem criados
+rewindData = planets.map(() => ({ startAngle: 0, endAngle: 0 }));
+
+// Event listener do botão reset-orbit
+document.getElementById('reset-orbit').addEventListener('click', () => {
+  closePanel();
+  if (isMobileStackMode) {
+    // Para mobile, inicia rotação aleatória seguida de retorno flutuante
+    startMobileReset();
+    return;
+  }
+  // Desktop
+  const currentTime = performance.now();
+  const timeInApp = appStartTime ? (currentTime - appStartTime) / 1000 : 0; // tempo em segundos
+  const fourMinutesInSeconds = 4 * 60; // 240 segundos
+  
+  // Determina quantas voltas fazer baseado no tempo na aplicação
+  const rotations = timeInApp <= fourMinutesInSeconds ? 1 : 2; // 1 volta até 4min, 2 voltas após
+  
+  rewindStartTime = performance.now();
+  isRewinding = true;
+  const baseShift = Math.random() * Math.PI * 2;
+  const spacing = (Math.PI * 2) / planets.length;
+  planets.forEach((p, i) => {
+    rewindData[i].startAngle = p.userData.angle;
+    const jitter = (Math.random() - 0.5) * (spacing * 0.2);
+    // Adiciona as voltas completas ao ângulo final
+    rewindData[i].endAngle = baseShift + i * spacing + jitter + (rotations * Math.PI * 2);
+  });
+});
+
 /* STL central (logo) */
 const loaderSTL = new STLLoader();
 let mesh = null;
 let meshMaterial = null;
+// STL: redução total de ~20.5% no desktop (7% + 5% + 10% adicional)
+const DESKTOP_STL_REDUCTION = 0.79515; // Reduz ~20.5% no desktop (0.93 * 0.95 * 0.9)
 let baseScale = 0.04;
 let responsiveScaleFactor = 1;
 let pendingMeshScaleFactor = null;
@@ -390,11 +563,9 @@ loaderSTL.load('IMGS/Trestech.stl', geometry => {
   }
   
   // Ajusta posição Y do STL se já estiver em modo mobile
-  const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-  const safeWidth = width > 0 ? width : 768;
-        if (safeWidth <= 768) {
-          mesh.position.y = 3.5; // offset Y no mobile
-        }
+  if (getSafeWidth() <= 768) {
+    mesh.position.y = 3.5; // offset Y no mobile
+  }
 }, undefined, () => setTimeout(() => startLoadingFade(), 3000));
 
 /* Base de Tooltip (DOM)*/
@@ -620,7 +791,21 @@ let mobileIntro = {
   cirandaStartAngles: [], // ângulos salvos para o reset
   cirandaStartPositions: [], // posições reais salvos para o reset (evita tranco)
   cirandaPaused: false, // flag para pausar a ciranda quando planeta é tocado
-  nameLabels: [] // elementos DOM para nomes dos planetas no mobile
+  nameLabels: [], // elementos DOM para nomes dos planetas no mobile
+  // Spinning: interação de girar os planetas
+  spinning: {
+    active: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    centerX: 0,
+    centerY: 0,
+    currentAngle: 0,
+    targetAngle: 0,
+    velocity: 0, // velocidade angular para inércia
+    damping: 0.92 // amortecimento da inércia
+  }
 };
 
 // posição do empilhamento (x fixo, y decrescente) - MANTIDO PARA COMPATIBILIDADE
@@ -764,10 +949,9 @@ function updateMobilePlanetLabels() {
     // Projeta posição 3D do planeta para coordenadas de tela
     planet.updateMatrixWorld(true); // Garante matriz atualizada
     const vec = new THREE.Vector3().setFromMatrixPosition(planet.matrixWorld);
-    vec.project(camera);
-    
-    const px = (vec.x * 0.5 + 0.5) * window.innerWidth;
-    const py = (-(vec.y) * 0.5 + 0.5) * window.innerHeight;
+    const screenPos = projectToScreen(vec, camera);
+    const px = screenPos.x;
+    const py = screenPos.y;
     
     // Posiciona label abaixo do planeta (offset Y positivo)
     // Usa left e top fixos, transform apenas para scale e centralização
@@ -850,32 +1034,22 @@ function startMobileReset() {
 }
 
 function applyResponsiveScale() {
-  // Garante que pega a largura mais confiável para evitar variações durante carregamento
-  // Usa o maior valor entre innerWidth e clientWidth para evitar valores muito pequenos
-  const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-  
-  // Garante um valor mínimo para evitar problemas durante carregamento
-  const safeWidth = width > 0 ? width : 768;
+  // Usa função helper para calcular largura segura
+  const safeWidth = getSafeWidth();
   
   let scaleFactor = 1;
-  if (safeWidth < 480) scaleFactor = 0.55;
-  else if (safeWidth < 768) scaleFactor = 0.7;
+  if (safeWidth < 480) scaleFactor = MOBILE_SCALE_SMALL;
+  else if (safeWidth < 768) scaleFactor = MOBILE_SCALE_MEDIUM;
   else if (safeWidth < 1024) scaleFactor = 0.9;
 
   scaleFactor = Math.max(0.4, scaleFactor);
   const isMobile = safeWidth <= 768;
 
   // No mobile, garante um scaleFactor fixo e consistente para evitar variações
-  // Usa um valor baseado na largura da tela, mas normalizado para evitar flutuações
+  // Usa função helper para calcular mobile scale
   let mobileScaleFactor = scaleFactor;
   if (isMobile) {
-    // Normaliza o scaleFactor para mobile garantindo consistência
-    // Usa breakpoints fixos para evitar variações entre carregamentos
-    if (safeWidth < 480) {
-      mobileScaleFactor = 0.55; // fixo para telas pequenas
-    } else {
-      mobileScaleFactor = 0.7; // fixo para telas médias mobile
-    }
+    mobileScaleFactor = getCurrentMobileScale();
     // Garante que o mobileScaleFactor seja sempre o mesmo para a mesma largura
     // Arredonda para evitar imprecisões de ponto flutuante
     mobileScaleFactor = Math.round(mobileScaleFactor * 1000) / 1000; // arredonda para 3 casas decimais
@@ -883,8 +1057,12 @@ function applyResponsiveScale() {
 
   // STL Scaling
   if (mesh && mesh.userData?.originalScale) {
-    const mobileBoost = isMobile ? 1.5 : 1.0;
-    const finalScale = isMobile ? mobileScaleFactor * mobileBoost : scaleFactor * mobileBoost;
+    const mobileBoost = isMobile ? MOBILE_STL_BOOST : 1.0;
+    let finalScale = isMobile ? mobileScaleFactor * mobileBoost : scaleFactor * mobileBoost;
+    // Aplica redução de ~20.5% no desktop
+    if (!isMobile) {
+      finalScale = finalScale * DESKTOP_STL_REDUCTION;
+    }
     mesh.scale.copy(mesh.userData.originalScale.clone().multiplyScalar(finalScale));
     
     // Ajusta posição Y do STL no mobile para criar distância do botão
@@ -894,7 +1072,12 @@ function applyResponsiveScale() {
           mesh.position.y = 0; // posição original no desktop
         }
   } else {
-    pendingMeshScaleFactor = isMobile ? (mobileScaleFactor * 1.3) : (scaleFactor * 1.0);
+    // Aplica redução de ~20.5% no desktop
+    let pendingFactor = isMobile ? (mobileScaleFactor * MOBILE_PENDING_BOOST) : (scaleFactor * 1.0);
+    if (!isMobile) {
+      pendingFactor = pendingFactor * DESKTOP_STL_REDUCTION;
+    }
+    pendingMeshScaleFactor = pendingFactor;
   }
 
   // Planets scaling - garante que originalScale esteja definido
@@ -902,17 +1085,18 @@ function applyResponsiveScale() {
     // Garante que originalScale esteja sempre definido como (1,1,1) antes de aplicar scaling
     // Isso garante que o tamanho base venha da geometria, não de escalas anteriores
     if (!p.userData.originalScale) {
-      p.userData.originalScale = new THREE.Vector3(1, 1, 1);
+      p.userData.originalScale = VECTOR3_ONE_INSTANCE.clone();
     }
     
     // Sempre reseta para originalScale (1,1,1) antes de aplicar novo scaling para garantir consistência
-    p.userData.originalScale.set(1, 1, 1);
+    p.userData.originalScale.copy(VECTOR3_ONE_INSTANCE);
     
     if (p.userData.originalScale) {
-      const mobilePlanetBoost = isMobile ? 1.74 : 1.0; // 1.45 * 1.20 = aumento de 20% no mobile
+      const mobilePlanetBoost = isMobile ? MOBILE_PLANET_BOOST : 1.0;
       // Se está em animação de zoom, não sobrescreve o zoom
       const zoomScale = (isMobile && p.userData.zoomScale !== undefined) ? p.userData.zoomScale : 1.0;
       const finalPlanetScale = isMobile ? (mobileScaleFactor * mobilePlanetBoost * zoomScale) : (scaleFactor * mobilePlanetBoost);
+      // O aumento de 10% no desktop já foi aplicado na criação da geometria
       // Garante precisão ao aplicar o scale - sempre parte de (1,1,1)
       p.scale.copy(p.userData.originalScale.clone().multiplyScalar(finalPlanetScale));
     }
@@ -982,6 +1166,11 @@ window.addEventListener('click', (event) => {
 });
 
 /* Interações Mobile — tooltip desativado no Chrome Android */
+let spinningTouchStartTime = 0;
+let spinningTouchStartPos = null;
+const SPINNING_THRESHOLD = 30; // pixels mínimos de movimento para iniciar spinning
+const SPINNING_TIME_THRESHOLD = 150; // ms mínimos de toque para iniciar spinning
+
 window.addEventListener('touchstart', (ev) => {
   if (!ev.touches || ev.touches.length === 0) return;
   if (panelOpen) return;
@@ -990,8 +1179,20 @@ window.addEventListener('touchstart', (ev) => {
   const t = ev.touches[0];
   const hit = intersectAtClient(t.clientX, t.clientY);
   if (hit.length > 0) {
-    // Pausa a ciranda quando um planeta é tocado (apenas no mobile)
+    // Inicializa dados do spinning
     if (isMobileStackMode && mobileIntro.phase === 'idle') {
+      spinningTouchStartTime = performance.now();
+      spinningTouchStartPos = { x: t.clientX, y: t.clientY };
+      mobileIntro.spinning.active = false;
+      mobileIntro.spinning.startX = t.clientX;
+      mobileIntro.spinning.startY = t.clientY;
+      mobileIntro.spinning.lastX = t.clientX;
+      mobileIntro.spinning.lastY = t.clientY;
+      mobileIntro.spinning.centerX = window.innerWidth / 2;
+      mobileIntro.spinning.centerY = window.innerHeight / 2;
+      mobileIntro.spinning.currentAngle = mobileIntro.cirandaAngle;
+      mobileIntro.spinning.targetAngle = mobileIntro.cirandaAngle;
+      mobileIntro.spinning.velocity = 0;
       mobileIntro.cirandaPaused = true;
     }
     
@@ -999,9 +1200,9 @@ window.addEventListener('touchstart', (ev) => {
       const obj = hit[0].object;
       const name = planetNames[obj.userData.index - 1];
       const vec = new THREE.Vector3().setFromMatrixPosition(obj.matrixWorld);
-      vec.project(camera);
-      const px = (vec.x * 0.5 + 0.5) * window.innerWidth;
-      const py = (-(vec.y) * 0.5 + 0.5) * window.innerHeight;
+      const screenPos = projectToScreen(vec, camera);
+      const px = screenPos.x;
+      const py = screenPos.y;
 
       tipping.style.left = `${px - 20}px`;
       tipping.style.top = `${py - 60}px`;
@@ -1011,21 +1212,123 @@ window.addEventListener('touchstart', (ev) => {
   }
 }, { passive: true });
 
+// Event listener para touchmove - detecta movimento de spinning
+window.addEventListener('touchmove', (ev) => {
+  if (!isMobileStackMode || mobileIntro.phase !== 'idle' || panelOpen || mobileIntro.active) return;
+  if (!ev.touches || ev.touches.length === 0) return;
+  
+  const t = ev.touches[0];
+  
+  // Se não há posição inicial de spinning, não processa
+  if (!spinningTouchStartPos) return;
+  
+  const hit = intersectAtClient(t.clientX, t.clientY);
+  
+  // Calcula o ângulo do movimento em relação ao centro da tela
+  const centerX = mobileIntro.spinning.centerX;
+  const centerY = mobileIntro.spinning.centerY;
+  const currentAngle = Math.atan2(t.clientY - centerY, t.clientX - centerX);
+  const lastAngle = Math.atan2(mobileIntro.spinning.lastY - centerY, mobileIntro.spinning.lastX - centerX);
+  
+  let deltaAngle = currentAngle - lastAngle;
+  // Normaliza o delta para o intervalo [-PI, PI]
+  if (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+  if (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+  
+  // Verifica se o movimento é suficiente para iniciar spinning
+  const timeSinceStart = performance.now() - spinningTouchStartTime;
+  const totalDistance = Math.sqrt(
+    Math.pow(t.clientX - spinningTouchStartPos.x, 2) + 
+    Math.pow(t.clientY - spinningTouchStartPos.y, 2)
+  );
+  
+  // Verifica se há movimento circular significativo
+  const movementDistance = Math.sqrt(
+    Math.pow(t.clientX - mobileIntro.spinning.lastX, 2) + 
+    Math.pow(t.clientY - mobileIntro.spinning.lastY, 2)
+  );
+  
+  if (!mobileIntro.spinning.active) {
+    // Inicia spinning se houver movimento suficiente e tempo mínimo
+    if (timeSinceStart > SPINNING_TIME_THRESHOLD && totalDistance > SPINNING_THRESHOLD && Math.abs(deltaAngle) > 0.01) {
+      mobileIntro.spinning.active = true;
+      ev.preventDefault(); // Previne scroll quando spinning está ativo
+    }
+  }
+  
+  if (mobileIntro.spinning.active) {
+    ev.preventDefault(); // Previne scroll durante spinning
+    
+    // Atualiza o ângulo da ciranda baseado no movimento circular
+    mobileIntro.spinning.targetAngle += deltaAngle;
+    mobileIntro.spinning.currentAngle = mobileIntro.spinning.targetAngle;
+    
+    // Calcula velocidade para inércia (baseada no deltaAngle e distância do movimento)
+    if (Math.abs(deltaAngle) > 0.001 && movementDistance > 2) {
+      // Velocidade proporcional ao deltaAngle e à distância do movimento
+      mobileIntro.spinning.velocity = deltaAngle * (1 + movementDistance * 0.01) * 0.4;
+    }
+    
+    mobileIntro.spinning.lastX = t.clientX;
+    mobileIntro.spinning.lastY = t.clientY;
+  }
+}, { passive: false });
+
 window.addEventListener('touchend', (ev) => {
   if (panelOpen) return;
   if (mobileIntro.active) return;
   const t = ev.changedTouches?.[0];
   if (!t) return;
-  const hit = intersectAtClient(t.clientX, t.clientY);
-  if (hit.length > 0) {
-    showPlanetPanelByIndex(hit[0].object.userData.index - 1);
-    // Mantém pausado enquanto o painel está aberto
+  
+  // Se estava fazendo spinning, aplica inércia e depois retoma movimento normal
+  if (mobileIntro.spinning.active) {
+    mobileIntro.spinning.active = false;
+    mobileIntro.cirandaAngle = mobileIntro.spinning.currentAngle;
+    
+    // Aplica inércia se houver velocidade significativa
+    if (Math.abs(mobileIntro.spinning.velocity) > 0.0005) {
+      // A inércia será aplicada no loop de animação
+      // Não retoma a ciranda imediatamente, deixa a inércia acabar primeiro
+      mobileIntro.cirandaPaused = true; // Mantém pausado durante inércia
+    } else {
+      // Se não há inércia significativa, retoma movimento normal imediatamente
+      mobileIntro.spinning.velocity = 0;
+      mobileIntro.cirandaPaused = false;
+    }
+    
+    spinningTouchStartPos = null;
+    return; // Não abre painel se estava fazendo spinning
+  }
+  
+  // Se não estava fazendo spinning, verifica se deve abrir painel
+  // Mas só se o toque foi rápido (tap) e não houve movimento significativo
+  const timeSinceStart = performance.now() - spinningTouchStartTime;
+  const totalDistance = spinningTouchStartPos ? 
+    Math.sqrt(
+      Math.pow(t.clientX - spinningTouchStartPos.x, 2) + 
+      Math.pow(t.clientY - spinningTouchStartPos.y, 2)
+    ) : 0;
+  
+  // Se foi um tap rápido (não spinning), abre o painel
+  if (timeSinceStart < 300 && totalDistance < SPINNING_THRESHOLD) {
+    const hit = intersectAtClient(t.clientX, t.clientY);
+    if (hit.length > 0) {
+      showPlanetPanelByIndex(hit[0].object.userData.index - 1);
+      // Mantém pausado enquanto o painel está aberto
+    } else {
+      // Se não tocou em nenhum planeta, retoma a ciranda
+      if (isMobileStackMode && !panelOpen && mobileIntro.phase === 'idle') {
+        mobileIntro.cirandaPaused = false;
+      }
+    }
   } else {
-    // Se não tocou em nenhum planeta, retoma a ciranda (se não estiver com painel aberto)
+    // Se houve movimento mas não foi spinning ativo, retoma ciranda
     if (isMobileStackMode && !panelOpen && mobileIntro.phase === 'idle') {
       mobileIntro.cirandaPaused = false;
     }
   }
+  
+  spinningTouchStartPos = null;
 }, { passive: true });
 
 /*Hover Desktop (com frenagem)*/
@@ -1066,9 +1369,9 @@ function updateHoverTooltip() {
     obj.userData.speed = obj.userData.baseSpeed * 0.05; // Frenagem ao hover
 
     const vec = new THREE.Vector3().setFromMatrixPosition(obj.matrixWorld);
-    vec.project(camera);
-    const px = (vec.x * 0.5 + 0.5) * window.innerWidth;
-    const py = (-(vec.y) * 0.5 + 0.5) * window.innerHeight;
+    const screenPos = projectToScreen(vec, camera);
+    const px = screenPos.x;
+    const py = screenPos.y;
 
     document.body.style.cursor = 'pointer';
     tipping.style.left = `${px + 10}px`;
@@ -1093,29 +1396,6 @@ window.addEventListener('mousemove', (e) => {
 }, { passive: true });
 
 /*Reset de Órbita (com easing Apple Smooth)*/
-let rewindStartTime = null;
-const rewindDuration = 1800;
-let isRewinding = false;
-const rewindData = planets.map(() => ({ startAngle: 0, endAngle: 0 }));
-
-document.getElementById('reset-orbit').addEventListener('click', () => {
-  closePanel();
-  if (isMobileStackMode) {
-    // Para mobile, inicia rotação aleatória seguida de retorno flutuante
-    startMobileReset();
-    return;
-  }
-  // Desktop
-  rewindStartTime = performance.now();
-  isRewinding = true;
-  const baseShift = Math.random() * Math.PI * 2;
-  const spacing = (Math.PI * 2) / planets.length;
-  planets.forEach((p, i) => {
-    rewindData[i].startAngle = p.userData.angle;
-    const jitter = (Math.random() - 0.5) * (spacing * 0.2);
-    rewindData[i].endAngle = baseShift + i * spacing + jitter;
-  });
-});
 
 /*BLOQUEIO DE CONTROLES NO MOBILE + ROTAÇÃO DO STL (sem inércia)*/
 function updateControlsForMode() {
@@ -1294,10 +1574,8 @@ function animate() {
         // Zoom in: de 0.85 para 1.0 (planetas voltam ao normal, nomes aparecem)
         const planetZoomScale = 0.85 + (0.15 * te); // 0.85 -> 1.0
         
-        // Calcula mobileScale atual
-        const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-        const safeWidth = width > 0 ? width : 768;
-        const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
+        // Calcula mobileScale atual (otimizado - calcula uma vez)
+        const currentMobileScale = getCurrentMobileScale();
         
         planets.forEach((p, i) => {
           const queuePos = mobileIntro.queuePositions[i];
@@ -1313,8 +1591,8 @@ function animate() {
           
           // Aplica zoom in no planeta (de 0.85 para 1.0)
           p.userData.zoomScale = planetZoomScale;
-          const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
-          p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
+          const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
+          p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * MOBILE_PLANET_BOOST)));
           
           // Nomes desabilitados no mobile (labels não são mais criados)
         });
@@ -1323,13 +1601,11 @@ function animate() {
           mobileIntro.active = false;
           mobileIntro.phase = 'idle';
           // Garante zoom final de 1.0
+          const finalMobileScale = getCurrentMobileScale();
           planets.forEach((p, i) => {
             p.userData.zoomScale = 1.0;
-            const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
-            const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-            const safeWidth = width > 0 ? width : 768;
-            const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
-            p.scale.copy(baseScale.clone().multiplyScalar(currentMobileScale * 1.74));
+            const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
+            p.scale.copy(baseScale.clone().multiplyScalar(finalMobileScale * MOBILE_PLANET_BOOST));
             // Nomes desabilitados no mobile
           });
         }
@@ -1347,10 +1623,8 @@ function animate() {
           // Planetas mantêm tamanho quase normal (zoom mínimo de 0.85)
           const planetZoomScale = 1.0 - (0.15 * te); // 1.0 -> 0.85 (redução leve)
           
-          // Calcula mobileScale atual
-          const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-          const safeWidth = width > 0 ? width : 768;
-          const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
+          // Calcula mobileScale atual (otimizado - calcula uma vez)
+          const currentMobileScale = getCurrentMobileScale();
         
           planets.forEach((p, i) => {
             // Usa posição inicial real para transição suave
@@ -1370,8 +1644,8 @@ function animate() {
             
             // Aplica zoom leve no planeta (não fica muito pequeno)
             p.userData.zoomScale = planetZoomScale;
-            const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
-            p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
+            const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
+            p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * MOBILE_PLANET_BOOST)));
             
             // Nomes desabilitados no mobile
           });
@@ -1383,10 +1657,8 @@ function animate() {
           const expandedRadius = radius * 1.5;
           const planetZoomScale = 0.85; // mantém tamanho quase normal
           
-          // Calcula mobileScale atual
-          const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-          const safeWidth = width > 0 ? width : 768;
-          const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
+          // Calcula mobileScale atual (otimizado - calcula uma vez)
+          const currentMobileScale = getCurrentMobileScale();
           
           planets.forEach((p, i) => {
             const startAngle = mobileIntro.cirandaStartAngles[i];
@@ -1398,8 +1670,8 @@ function animate() {
             
             // Mantém tamanho quase normal
             p.userData.zoomScale = planetZoomScale;
-            const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
-            p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
+            const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
+            p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * MOBILE_PLANET_BOOST)));
             
             // Nomes desabilitados no mobile
           });
@@ -1409,10 +1681,8 @@ function animate() {
           const te = appleEase(t);
           const planetZoomScale = 0.85; // mantém tamanho quase normal durante retorno
           
-          // Calcula mobileScale atual
-          const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-          const safeWidth = width > 0 ? width : 768;
-          const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
+          // Calcula mobileScale atual (otimizado - calcula uma vez)
+          const currentMobileScale = getCurrentMobileScale();
           
           planets.forEach((p, i) => {
             const currentPos = p.position.clone();
@@ -1421,8 +1691,8 @@ function animate() {
             
             // Mantém tamanho quase normal durante retorno
             p.userData.zoomScale = planetZoomScale;
-            const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
-            p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * 1.74)));
+            const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
+            p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * MOBILE_PLANET_BOOST)));
             
             // Nomes desabilitados no mobile
           });
@@ -1437,49 +1707,67 @@ function animate() {
           mobileIntro.cirandaAngle = 0;
         }
       }
-    } else {
-      // Estado idle: Ciranda contínua ao redor do STL
-      if (!panelOpen) {
-        const radius = mobileIntro.cirandaRadius;
-        
-        // Garante que baseAngles está definido
-        if (!mobileIntro.baseAngles || mobileIntro.baseAngles.length === 0) {
-          mobileIntro.baseAngles = planets.map((_, i) => (i / planets.length) * Math.PI * 2);
-        }
-        
-        // Atualiza o ângulo da ciranda (rotação contínua) apenas se não estiver pausado
-        if (!mobileIntro.cirandaPaused) {
-          mobileIntro.cirandaAngle += mobileIntro.cirandaSpeed;
-          if (mobileIntro.cirandaAngle > Math.PI * 2) mobileIntro.cirandaAngle -= Math.PI * 2;
-        }
-        
-        // Posiciona os planetas na ciranda (mesmo se pausado, mantém na posição atual)
-        // Zoom in completo (1.0) quando em idle
-        const yOffset = mobileIntro.cirandaYOffset || 3.5;
-        planets.forEach((p, index) => {
-          const baseAngle = mobileIntro.baseAngles[index];
-          const currentAngle = baseAngle + mobileIntro.cirandaAngle;
-          const x = Math.cos(currentAngle) * radius;
-          const y = Math.sin(currentAngle) * radius + yOffset;
-          p.position.set(x, y, 0);
+      } else {
+        // Estado idle: Ciranda contínua ao redor do STL
+        if (!panelOpen) {
+          const radius = mobileIntro.cirandaRadius;
           
+          // Garante que baseAngles está definido
+          if (!mobileIntro.baseAngles || mobileIntro.baseAngles.length === 0) {
+            mobileIntro.baseAngles = planets.map((_, i) => (i / planets.length) * Math.PI * 2);
+          }
+          
+          // Spinning: aplica rotação manual ou inércia
+          if (mobileIntro.spinning.active) {
+            // Durante spinning ativo, usa o ângulo atual do spinning
+            mobileIntro.cirandaAngle = mobileIntro.spinning.currentAngle;
+          } else if (Math.abs(mobileIntro.spinning.velocity) > 0.0001) {
+            // Aplica inércia após soltar
+            mobileIntro.spinning.velocity *= mobileIntro.spinning.damping;
+            mobileIntro.spinning.currentAngle += mobileIntro.spinning.velocity;
+            mobileIntro.cirandaAngle = mobileIntro.spinning.currentAngle;
+            
+            // Quando a inércia acabar, retoma movimento normal
+            if (Math.abs(mobileIntro.spinning.velocity) < 0.0001) {
+              mobileIntro.spinning.velocity = 0;
+              mobileIntro.cirandaPaused = false;
+            }
+          } else if (!mobileIntro.cirandaPaused) {
+            // Movimento normal da ciranda
+            mobileIntro.cirandaAngle += mobileIntro.cirandaSpeed;
+            if (mobileIntro.cirandaAngle > Math.PI * 2) mobileIntro.cirandaAngle -= Math.PI * 2;
+            if (mobileIntro.cirandaAngle < 0) mobileIntro.cirandaAngle += Math.PI * 2;
+          }
+          
+          // Normaliza o ângulo para o intervalo [0, 2*PI]
+          if (mobileIntro.cirandaAngle > Math.PI * 2) mobileIntro.cirandaAngle -= Math.PI * 2;
+          if (mobileIntro.cirandaAngle < 0) mobileIntro.cirandaAngle += Math.PI * 2;
+          
+          // Posiciona os planetas na ciranda (mesmo se pausado, mantém na posição atual)
+          // Zoom in completo (1.0) quando em idle
+          const yOffset = mobileIntro.cirandaYOffset || 3.5;
+          planets.forEach((p, index) => {
+            const baseAngle = mobileIntro.baseAngles[index];
+            const currentAngle = baseAngle + mobileIntro.cirandaAngle;
+            const x = Math.cos(currentAngle) * radius;
+            const y = Math.sin(currentAngle) * radius + yOffset;
+            p.position.set(x, y, 0);
+            
           // Garante zoom in completo (1.0) em idle
           if (p.userData.zoomScale !== 1.0) {
             p.userData.zoomScale = 1.0;
-            const baseScale = p.userData.originalScale || new THREE.Vector3(1, 1, 1);
-            const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-            const safeWidth = width > 0 ? width : 768;
-            const currentMobileScale = safeWidth < 480 ? 0.55 : 0.7;
-            p.scale.copy(baseScale.clone().multiplyScalar(currentMobileScale * 1.74));
+            const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
+            const currentMobileScale = getCurrentMobileScale();
+            p.scale.copy(baseScale.clone().multiplyScalar(currentMobileScale * MOBILE_PLANET_BOOST));
           }
-          
-          // Nomes desabilitados no mobile
-        });
-      } else {
-        // Se o painel está aberto, também pausa a ciranda
-        mobileIntro.cirandaPaused = true;
+            
+            // Nomes desabilitados no mobile
+          });
+        } else {
+          // Se o painel está aberto, também pausa a ciranda
+          mobileIntro.cirandaPaused = true;
+        }
       }
-    }
   } else {
     // Desktop: órbitas (com easing na volta do reset)
     if (isRewinding) {
@@ -1488,7 +1776,13 @@ function animate() {
       
       // Calcula posições orbitais base
       planets.forEach((p, i) => {
+        // Interpola o ângulo, que já inclui as voltas completas necessárias
         p.userData.angle = THREE.MathUtils.lerp(rewindData[i].startAngle, rewindData[i].endAngle, e);
+        
+        // Normaliza o ângulo para o intervalo [0, 2π]
+        while (p.userData.angle > Math.PI * 2) p.userData.angle -= Math.PI * 2;
+        while (p.userData.angle < 0) p.userData.angle += Math.PI * 2;
+        
         const r = p.userData.radius;
         const baseX = Math.cos(p.userData.angle) * r;
         const baseY = Math.sin(p.userData.angle) * r;
@@ -1510,12 +1804,14 @@ function animate() {
           const minDist = (p.userData.minDistance || 0) + (other.userData.minDistance || 0);
           
           if (distance > 0 && distance < minDist) {
+            // Força de repulsão reduzida no desktop para órbita mais organizada
+            const repulsionForce = isMobileStackMode ? 0.15 : 0.05; // força muito menor no desktop
             const force = (minDist - distance) / minDist;
             const normalizedX = dx / distance;
             const normalizedY = dy / distance;
             
-            totalRepulsionX += normalizedX * force * 0.15;
-            totalRepulsionY += normalizedY * force * 0.15;
+            totalRepulsionX += normalizedX * force * repulsionForce;
+            totalRepulsionY += normalizedY * force * repulsionForce;
           }
         });
         
@@ -1544,12 +1840,14 @@ function animate() {
           
           if (distance > 0 && distance < minDist) {
             // Força de repulsão (inversamente proporcional à distância)
+            // Reduzida no desktop para órbita mais organizada
+            const repulsionForce = isMobileStackMode ? 0.15 : 0.05; // força muito menor no desktop
             const force = (minDist - distance) / minDist;
             const normalizedX = dx / distance;
             const normalizedY = dy / distance;
             
-            totalRepulsionX += normalizedX * force * 0.15; // força suave
-            totalRepulsionY += normalizedY * force * 0.15;
+            totalRepulsionX += normalizedX * force * repulsionForce;
+            totalRepulsionY += normalizedY * force * repulsionForce;
           }
         });
         
@@ -1586,6 +1884,11 @@ function animate() {
 
 // Initialize universe after DOM is ready, with a small delay to prioritize initial paint
 document.addEventListener('DOMContentLoaded', () => {
+  // Inicializa o tempo de início da aplicação quando o DOM está pronto
+  if (appStartTime === null) {
+    appStartTime = performance.now();
+  }
+  
   // Check for reduced motion preference
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (prefersReducedMotion) {
