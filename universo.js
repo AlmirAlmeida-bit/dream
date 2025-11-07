@@ -1,11 +1,18 @@
 // Dynamic imports will be used inside initUniverse function
 
+/*
+ * Este projeto utiliza Three.js para renderização 3D
+ * Three.js - https://threejs.org/
+ * Copyright (c) 2010-2024 Three.js Authors
+ * Licença: MIT - https://github.com/mrdoob/three.js/blob/master/LICENSE
+ */
+
 /* PATCH MOBILE (Chrome Android)*/
 const isChromeAndroid = /Chrome/i.test(navigator.userAgent) && /Android/i.test(navigator.userAgent);
 
 // Variáveis globais para rewind
 let rewindStartTime = null;
-const rewindDuration = 1800;
+const rewindDuration = 3500; // Aumentado para 3.5s para animação mais suave no desktop
 let isRewinding = false;
 let rewindData = [];
 let appStartTime = null; // Tempo de início da aplicação
@@ -14,14 +21,15 @@ let appStartTime = null; // Tempo de início da aplicação
 const MOBILE_SCALE_SMALL = 0.55;
 const MOBILE_SCALE_MEDIUM = 0.7;
 const MOBILE_PLANET_BOOST = 1.74;
-const MOBILE_STL_BOOST = 1.5;
+const MOBILE_GLTF_BOOST = 1.5;
 const MOBILE_PENDING_BOOST = 1.3;
+
 
 // Initialize Three.js universe on demand
 async function initUniverse() {
   // Dynamic imports for Three.js
   const THREE = await import('three');
-  const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
   const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
   
   // Inicializa constante reutilizável (acessível globalmente dentro do escopo)
@@ -229,7 +237,7 @@ window.addEventListener('resize', () => {
 /*Fade compartilhado com a cena principal*/
 let meshLoaded = false;
 let meshLoadedAt = 0;
-const fadeDelayAfterLoad = 3000;   // aguarda 3s após o STL carregar
+const fadeDelayAfterLoad = 3000;   // aguarda 3s após o GLTF carregar
 const loadingFadeDuration = 2000;  // duração do fade do overlay
 let fadeStarted = false;
 let fadeStartTime = 0;
@@ -254,7 +262,7 @@ function startLoadingFade() {
   }, loadingFadeDuration + 50);
 }
 
-// Fallback: some após 10s mesmo se STL demorar
+// Fallback: some após 10s mesmo se GLTF demorar
 setTimeout(() => {
   if (!meshLoaded && !fadeStarted) startLoadingFade();
 }, 10000);
@@ -515,12 +523,8 @@ document.getElementById('reset-orbit').addEventListener('click', () => {
     return;
   }
   // Desktop
-  const currentTime = performance.now();
-  const timeInApp = appStartTime ? (currentTime - appStartTime) / 1000 : 0; // tempo em segundos
-  const fourMinutesInSeconds = 4 * 60; // 240 segundos
-  
-  // Determina quantas voltas fazer baseado no tempo na aplicação
-  const rotations = timeInApp <= fourMinutesInSeconds ? 1 : 2; // 1 volta até 4min, 2 voltas após
+  // Sempre faz exatamente 2 voltas completas, sincronizado com o GLTF
+  const rotations = 2; // Sempre 2 voltas completas
   
   rewindStartTime = performance.now();
   isRewinding = true;
@@ -529,29 +533,160 @@ document.getElementById('reset-orbit').addEventListener('click', () => {
   planets.forEach((p, i) => {
     rewindData[i].startAngle = p.userData.angle;
     const jitter = (Math.random() - 0.5) * (spacing * 0.2);
-    // Adiciona as voltas completas ao ângulo final
+    // Adiciona exatamente 2 voltas completas ao ângulo final (sincronizado)
     rewindData[i].endAngle = baseShift + i * spacing + jitter + (rotations * Math.PI * 2);
   });
+  
+  // Desktop: GLTF não faz rewind, apenas continua girando normalmente
+  // Não salva rotação para rewind no desktop
 });
 
-/* STL central (logo) */
-const loaderSTL = new STLLoader();
+/* GLTF central (logo) */
+const loaderGLTF = new GLTFLoader();
 let mesh = null;
 let meshMaterial = null;
-// STL: redução total de ~20.5% no desktop (7% + 5% + 10% adicional)
-const DESKTOP_STL_REDUCTION = 0.79515; // Reduz ~20.5% no desktop (0.93 * 0.95 * 0.9)
+let meshInitialRotation = null; // Armazena a rotação inicial do GLTF
+let meshRewindStartRotation = null; // Armazena a rotação no início do rewind para interpolação
+// GLTF: redução total de ~20.5% no desktop (7% + 5% + 10% adicional)
+const DESKTOP_GLTF_REDUCTION = 0.79515; // Reduz ~20.5% no desktop (0.93 * 0.95 * 0.9)
 let baseScale = 0.04;
 let responsiveScaleFactor = 1;
 let pendingMeshScaleFactor = null;
 
-loaderSTL.load('IMGS/Trestech.stl', geometry => {
-  if (geometry.boundingBox === null) geometry.computeBoundingBox();
-  if (geometry.isBufferGeometry) geometry.center();
-
-  meshMaterial = new THREE.MeshPhongMaterial({ color: 0x88ccff, shininess: 100, transparent: true, opacity: 0 });
-  mesh = new THREE.Mesh(geometry, meshMaterial);
+loaderGLTF.load('IMGS/Trestech.gltf', gltf => {
+  // GLTF retorna um objeto com scene, animations, etc.
+  // Usa a scene inteira como o objeto principal (pode conter grupos ou meshes)
+  const gltfScene = gltf.scene;
+  
+  // Centraliza o objeto calculando o bounding box de toda a scene
+  const box = new THREE.Box3().setFromObject(gltfScene);
+  const center = box.getCenter(new THREE.Vector3());
+  gltfScene.position.sub(center);
+  
+  // Aplica rotação inicial para posicionar como busto (deitado horizontalmente)
+  // Rotaciona 90 graus no eixo X para deitar o objeto (de pé para horizontal)
+  gltfScene.rotation.x = Math.PI / 2;
+  // Posiciona como ponteiro de relógio apontando para 15:45 (112.5 graus)
+  // 15:45 = 3 horas + 45 minutos = 90° + (45/60)*30° = 112.5°
+  // Posição final ajustada para 0 graus (perfeito)
+  gltfScene.rotation.y = 0;
+  
+  // Aplica material a todos os meshes do grupo
+  // Preserva as cores originais (azul e branco) do GLTF
+  const meshMaterials = [];
+  
+  gltfScene.traverse((child) => {
+    if (child.isMesh) {
+      // Processa materiais existentes ou cria novos
+      if (Array.isArray(child.material)) {
+        // Se for array de materiais, processa cada um
+        child.material = child.material.map((oldMat, index) => {
+          const newMat = new THREE.MeshPhongMaterial({ 
+            shininess: 100,
+            specular: 0x222222,
+            transparent: true, 
+            opacity: 0,
+            side: THREE.DoubleSide
+          });
+          
+          // Preserva a cor original do material se existir
+          if (oldMat && oldMat.color) {
+            newMat.color.copy(oldMat.color);
+          } else {
+            // Se não tiver cor, usa azul como padrão (realçado)
+            newMat.color.setRGB(0.2, 0.6, 1.0); // Azul mais vibrante
+          }
+          
+          // Garante que a cor seja azul ou branco (preserva valores próximos)
+          const r = newMat.color.r;
+          const g = newMat.color.g;
+          const b = newMat.color.b;
+          
+          // Detecta se a cor é branca (valores altos) ou azul
+          const isWhite = (r > 0.9 && g > 0.9 && b > 0.9);
+          const isBlue = (b > r && b > g && b > 0.5);
+          
+          if (isWhite) {
+            // Mantém branco
+            newMat.color.setRGB(1.0, 1.0, 1.0);
+          } else if (isBlue) {
+            // Aplica azul realçado/vibrante
+            newMat.color.setRGB(0.2, 0.6, 1.0); // Azul mais intenso e vibrante
+          } else {
+            // Se não for nem branco nem azul claro, aplica azul realçado por padrão
+            newMat.color.setRGB(0.2, 0.6, 1.0);
+          }
+          
+          meshMaterials.push(newMat);
+          return newMat;
+        });
+      } else {
+        // Material único
+        const oldMat = child.material;
+        const newMat = new THREE.MeshPhongMaterial({ 
+          shininess: 100,
+          specular: 0x222222,
+          transparent: true, 
+          opacity: 0,
+          side: THREE.DoubleSide
+        });
+        
+        // Preserva a cor original do material se existir
+        if (oldMat && oldMat.color) {
+          newMat.color.copy(oldMat.color);
+          
+          // Detecta se a cor é branca ou azul
+          const r = newMat.color.r;
+          const g = newMat.color.g;
+          const b = newMat.color.b;
+          
+          const isWhite = (r > 0.9 && g > 0.9 && b > 0.9);
+          const isBlue = (b > r && b > g && b > 0.5);
+          
+          if (isWhite) {
+            newMat.color.setRGB(1.0, 1.0, 1.0);
+          } else if (isBlue) {
+            // Aplica azul realçado/vibrante
+            newMat.color.setRGB(0.2, 0.6, 1.0); // Azul mais intenso e vibrante
+          } else {
+            newMat.color.setRGB(0.2, 0.6, 1.0);
+          }
+        } else {
+          // Se não tiver cor, usa azul realçado como padrão
+          newMat.color.setRGB(0.2, 0.6, 1.0); // Azul mais vibrante
+        }
+        
+        child.material = newMat;
+        meshMaterials.push(newMat);
+      }
+      
+      // Força atualização do mesh
+      child.matrixWorldNeedsUpdate = true;
+    }
+  });
+  
+  // Garante que pelo menos um material foi criado
+  if (meshMaterials.length === 0) {
+    // Sem materiais encontrados no GLTF (silencioso em produção)
+  }
+  
+  // Se houver materiais, usa o primeiro como referência principal
+  meshMaterial = meshMaterials.length > 0 ? meshMaterials[0] : null;
+  
+  // Usa a scene inteira como o objeto principal para transformações
+  mesh = gltfScene;
+  
+  // Aplica escala
   mesh.scale.set(baseScale * 1.5, baseScale * 1.5, baseScale * 1.5);
-  mesh.userData = { originalScale: mesh.scale.clone() };
+  mesh.userData = { originalScale: mesh.scale.clone(), allMaterials: meshMaterials };
+  
+  // Salva a rotação inicial para reset
+  meshInitialRotation = {
+    x: mesh.rotation.x,
+    y: mesh.rotation.y,
+    z: mesh.rotation.z
+  };
+  
   scene.add(mesh);
 
   meshLoaded = true;
@@ -562,7 +697,7 @@ loaderSTL.load('IMGS/Trestech.stl', geometry => {
     pendingMeshScaleFactor = null;
   }
   
-  // Ajusta posição Y do STL se já estiver em modo mobile
+  // Ajusta posição Y do GLTF se já estiver em modo mobile
   if (getSafeWidth() <= 768) {
     mesh.position.y = 3.5; // offset Y no mobile
   }
@@ -815,12 +950,12 @@ function stackPosByRank(rank) {
   return new THREE.Vector3(x, y, 0);
 }
 
-// NOVO: Posicionamento em círculo ao redor do STL para mobile
+// NOVO: Posicionamento em círculo ao redor do GLTF para mobile
 function layoutMobileCircular() {
-  const centerX = 0; // centro do STL
+  const centerX = 0; // centro do GLTF
   const centerY = 3.5; // deslocado para cima para criar distância do botão
   const centerZ = 0;
-  const radius = 6; // raio menor para ficar mais próximo do STL
+  const radius = 6; // raio menor para ficar mais próximo do GLTF
   
   planets.forEach((planet, index) => {
     // Distribui os planetas uniformemente em um círculo
@@ -970,6 +1105,19 @@ function startMobileReset() {
   mobileIntro.phase = 'reset'; // fase de reset
   mobileIntro.t0 = performance.now();
   
+  // Limpa posições finais da rotação anterior (se existirem)
+  mobileIntro.rotateEndPositions = [];
+  
+  // Salva a rotação atual do GLTF para interpolação suave no mobile (não reseta ainda)
+  // Garante que o GLTF dará exatamente 2 voltas completas no eixo Z, sincronizado com os planetas
+  if (mesh && meshInitialRotation) {
+    meshRewindStartRotation = {
+      x: mesh.rotation.x,
+      y: mesh.rotation.y,
+      z: mesh.rotation.z
+    };
+  }
+  
   // Garante que as posições dos planetas estejam atualizadas antes de salvar
   planets.forEach(p => p.updateMatrixWorld(true));
   
@@ -1055,17 +1203,17 @@ function applyResponsiveScale() {
     mobileScaleFactor = Math.round(mobileScaleFactor * 1000) / 1000; // arredonda para 3 casas decimais
   }
 
-  // STL Scaling
+  // GLTF Scaling
   if (mesh && mesh.userData?.originalScale) {
-    const mobileBoost = isMobile ? MOBILE_STL_BOOST : 1.0;
+    const mobileBoost = isMobile ? MOBILE_GLTF_BOOST : 1.0;
     let finalScale = isMobile ? mobileScaleFactor * mobileBoost : scaleFactor * mobileBoost;
     // Aplica redução de ~20.5% no desktop
     if (!isMobile) {
-      finalScale = finalScale * DESKTOP_STL_REDUCTION;
+      finalScale = finalScale * DESKTOP_GLTF_REDUCTION;
     }
     mesh.scale.copy(mesh.userData.originalScale.clone().multiplyScalar(finalScale));
     
-    // Ajusta posição Y do STL no mobile para criar distância do botão
+    // Ajusta posição Y do GLTF no mobile para criar distância do botão
         if (isMobile) {
           mesh.position.y = 3.5; // offset Y no mobile
         } else {
@@ -1075,7 +1223,7 @@ function applyResponsiveScale() {
     // Aplica redução de ~20.5% no desktop
     let pendingFactor = isMobile ? (mobileScaleFactor * MOBILE_PENDING_BOOST) : (scaleFactor * 1.0);
     if (!isMobile) {
-      pendingFactor = pendingFactor * DESKTOP_STL_REDUCTION;
+      pendingFactor = pendingFactor * DESKTOP_GLTF_REDUCTION;
     }
     pendingMeshScaleFactor = pendingFactor;
   }
@@ -1397,7 +1545,7 @@ window.addEventListener('mousemove', (e) => {
 
 /*Reset de Órbita (com easing Apple Smooth)*/
 
-/*BLOQUEIO DE CONTROLES NO MOBILE + ROTAÇÃO DO STL (sem inércia)*/
+/*BLOQUEIO DE CONTROLES NO MOBILE + ROTAÇÃO DO GLTF (sem inércia)*/
 function updateControlsForMode() {
   if (isMobileStackMode) {
     controls.enabled = false;
@@ -1425,8 +1573,8 @@ function updateControlsForMode() {
   }
 }
 
-// Interação do STL no mobile (arrastar = rotacionar X/Y) — COM FLUIDEZ
-const stlDrag = { 
+// Interação do GLTF no mobile (arrastar = rotacionar X/Y) — COM FLUIDEZ
+const gltfDrag = { 
   active: false, 
   lastX: 0, 
   lastY: 0,
@@ -1435,9 +1583,9 @@ const stlDrag = {
   currentRotationX: 0,
   currentRotationY: 0
 };
-const STL_DRAG_SENS = 0.0045; // Sensibilidade aumentada para mais fluidez
+const GLTF_DRAG_SENS = 0.0045; // Sensibilidade aumentada para mais fluidez
 
-function onStlTouchStart(e) {
+function onGltfTouchStart(e) {
   if (!isMobileStackMode || !mesh) return;
   if (!e.touches || e.touches.length === 0) return;
   
@@ -1446,81 +1594,81 @@ function onStlTouchStart(e) {
   // PRIMEIRO: Verifica se não está tocando um planeta (prioridade para spinning)
   const planetHit = intersectAtClient(t.clientX, t.clientY);
   if (planetHit.length > 0) {
-    // Se tocou em um planeta, não ativa o drag do STL
+    // Se tocou em um planeta, não ativa o drag do GLTF
     return;
   }
   
-  // SEGUNDO: Verifica se o toque está próximo do STL (raio menor)
+  // SEGUNDO: Verifica se o toque está próximo do GLTF (raio menor)
   pointer.x = (t.clientX / window.innerWidth) * 2 - 1;
   pointer.y = (-(t.clientY) / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   
-  // Faz raycast apenas no STL
-  const stlHit = raycaster.intersectObject(mesh);
-  if (stlHit.length === 0) {
-    // Não tocou no STL
+  // Faz raycast no GLTF (pode ser um grupo, então usa intersectObjects)
+  const gltfHit = raycaster.intersectObject(mesh, true);
+  if (gltfHit.length === 0) {
+    // Não tocou no GLTF
     return;
   }
   
   // TERCEIRO: Verifica se está dentro de um raio menor (reduzido para 60% do tamanho visual)
-  const hitPoint = stlHit[0].point;
-  const stlCenter = new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld);
-  const distanceFromCenter = hitPoint.distanceTo(stlCenter);
+  const hitPoint = gltfHit[0].point;
+  const gltfCenter = new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld);
+  const distanceFromCenter = hitPoint.distanceTo(gltfCenter);
   
-  // Calcula o raio máximo permitido (60% do tamanho do bounding box do STL)
+  // Calcula o raio máximo permitido (60% do tamanho do bounding box do GLTF)
   const boundingBox = new THREE.Box3().setFromObject(mesh);
-  const stlSize = boundingBox.getSize(new THREE.Vector3());
-  const maxRadius = Math.max(stlSize.x, stlSize.y, stlSize.z) * 0.3; // 30% do maior eixo (raio menor)
+  const gltfSize = boundingBox.getSize(new THREE.Vector3());
+  const maxRadius = Math.max(gltfSize.x, gltfSize.y, gltfSize.z) * 0.3; // 30% do maior eixo (raio menor)
   
   if (distanceFromCenter > maxRadius) {
-    // Toque está muito longe do centro do STL, não ativa
+    // Toque está muito longe do centro do GLTF, não ativa
     return;
   }
   
-  // Se passou todas as verificações, ativa o drag do STL
-  stlDrag.active = true;
-  stlDrag.lastX = t.clientX;
-  stlDrag.lastY = t.clientY;
+  // Se passou todas as verificações, ativa o drag do GLTF
+  gltfDrag.active = true;
+  gltfDrag.lastX = t.clientX;
+  gltfDrag.lastY = t.clientY;
   // Inicializa as rotações alvo com a rotação atual
-  stlDrag.targetRotationX = mesh.rotation.x;
-  stlDrag.targetRotationY = mesh.rotation.y;
-  stlDrag.currentRotationX = mesh.rotation.x;
-  stlDrag.currentRotationY = mesh.rotation.y;
+  gltfDrag.targetRotationX = mesh.rotation.x;
+  gltfDrag.targetRotationY = mesh.rotation.y;
+  gltfDrag.currentRotationX = mesh.rotation.x;
+  gltfDrag.currentRotationY = mesh.rotation.y;
 }
-function onStlTouchMove(e) {
+function onGltfTouchMove(e) {
   if (!isMobileStackMode || !mesh) return;
-  if (!stlDrag.active) return;
+  if (!gltfDrag.active) return;
   if (!e.touches || e.touches.length === 0) return;
   e.preventDefault();
   const t = e.touches[0];
-  const dx = t.clientX - stlDrag.lastX;
-  const dy = t.clientY - stlDrag.lastY;
-  stlDrag.lastX = t.clientX;
-  stlDrag.lastY = t.clientY;
+  const dx = t.clientX - gltfDrag.lastX;
+  const dy = t.clientY - gltfDrag.lastY;
+  gltfDrag.lastX = t.clientX;
+  gltfDrag.lastY = t.clientY;
   
   // Atualiza rotações alvo (mais fluido)
-  stlDrag.targetRotationY += dx * STL_DRAG_SENS;
-  stlDrag.targetRotationX += dy * STL_DRAG_SENS;
+  gltfDrag.targetRotationY += dx * GLTF_DRAG_SENS;
+  gltfDrag.targetRotationX += dy * GLTF_DRAG_SENS;
   
   // Limita inclinação X
   const maxTilt = Math.PI / 2.5;
-  stlDrag.targetRotationX = Math.max(-maxTilt, Math.min(maxTilt, stlDrag.targetRotationX));
+  gltfDrag.targetRotationX = Math.max(-maxTilt, Math.min(maxTilt, gltfDrag.targetRotationX));
   
   // Aplica suavização imediata para fluidez
   const smoothFactor = 0.3; // quanto maior, mais direto (0.3 = suave e fluido)
-  stlDrag.currentRotationX += (stlDrag.targetRotationX - stlDrag.currentRotationX) * smoothFactor;
-  stlDrag.currentRotationY += (stlDrag.targetRotationY - stlDrag.currentRotationY) * smoothFactor;
+  gltfDrag.currentRotationX += (gltfDrag.targetRotationX - gltfDrag.currentRotationX) * smoothFactor;
+  gltfDrag.currentRotationY += (gltfDrag.targetRotationY - gltfDrag.currentRotationY) * smoothFactor;
   
-  mesh.rotation.x = stlDrag.currentRotationX;
-  mesh.rotation.y = stlDrag.currentRotationY;
+  mesh.rotation.x = gltfDrag.currentRotationX;
+  mesh.rotation.y = gltfDrag.currentRotationY;
 }
-function onStlTouchEnd() {
+function onGltfTouchEnd() {
   if (!isMobileStackMode) return;
-  stlDrag.active = false;
+  gltfDrag.active = false;
 }
-renderer.domElement.addEventListener('touchstart', onStlTouchStart, { passive: false });
-renderer.domElement.addEventListener('touchmove',  onStlTouchMove,  { passive: false });
-renderer.domElement.addEventListener('touchend',   onStlTouchEnd,   { passive: true  });
+renderer.domElement.addEventListener('touchstart', onGltfTouchStart, { passive: false });
+renderer.domElement.addEventListener('touchmove',  onGltfTouchMove,  { passive: false });
+renderer.domElement.addEventListener('touchend',   onGltfTouchEnd,   { passive: true  });
 
 /* ============================================================
    Logo holográfico: visibilidade por scroll (>=85%)
@@ -1545,19 +1693,22 @@ function animate() {
   requestAnimationFrame(animate);
   controls.update();
 
-  // STL: gira sozinho sempre (apenas quando não está sendo arrastado no mobile)
+  // GLTF: gira sozinho sempre (apenas quando não está sendo arrastado no mobile)
   if (mesh) {
-    if (isMobileStackMode && stlDrag.active) {
+    // Materiais só precisam de update quando realmente mudarem - removido update desnecessário a cada frame
+    
+    if (isMobileStackMode && gltfDrag.active) {
       // Durante o arrasto, não gira automaticamente - apenas segue o movimento do usuário
       // Continua suavizando a rotação se necessário
       const smoothFactor = 0.15;
-      stlDrag.currentRotationX += (stlDrag.targetRotationX - stlDrag.currentRotationX) * smoothFactor;
-      stlDrag.currentRotationY += (stlDrag.targetRotationY - stlDrag.currentRotationY) * smoothFactor;
-      mesh.rotation.x = stlDrag.currentRotationX;
-      mesh.rotation.y = stlDrag.currentRotationY;
+      gltfDrag.currentRotationX += (gltfDrag.targetRotationX - gltfDrag.currentRotationX) * smoothFactor;
+      gltfDrag.currentRotationY += (gltfDrag.targetRotationY - gltfDrag.currentRotationY) * smoothFactor;
+      mesh.rotation.x = gltfDrag.currentRotationX;
+      mesh.rotation.y = gltfDrag.currentRotationY;
     } else {
-      // Rotação automática quando não está sendo arrastado
-      mesh.rotation.y += 0.005;
+      // Rotação automática: gira como hélice/cata-vento (eixo Z - perpendicular ao plano)
+      // Sentido da direita para esquerda (positivo)
+      mesh.rotation.z += 0.005;
     }
   }
 
@@ -1565,9 +1716,21 @@ function animate() {
   if (meshLoaded && !fadeStarted) {
     if (performance.now() - meshLoadedAt >= fadeDelayAfterLoad) startLoadingFade();
   }
-  if (fadeStarted && meshMaterial) {
+  if (fadeStarted && mesh && mesh.userData && mesh.userData.allMaterials) {
     const t = Math.min(1, (performance.now() - fadeStartTime) / loadingFadeDuration);
+    // Aplica fade em todos os materiais do GLTF
+    mesh.userData.allMaterials.forEach(mat => {
+      if (mat) {
+        // Preserva a cor original, apenas atualiza opacidade
+        mat.opacity = t;
+        mat.needsUpdate = true;
+      }
+    });
+  } else if (fadeStarted && meshMaterial) {
+    const t = Math.min(1, (performance.now() - fadeStartTime) / loadingFadeDuration);
+    // Preserva a cor original, apenas atualiza opacidade
     meshMaterial.opacity = t;
+    meshMaterial.needsUpdate = true;
   }
 
   // typing do tipping (desktop)
@@ -1611,7 +1774,7 @@ function animate() {
         // Zoom in: de 0.85 para 1.0 (planetas voltam ao normal, nomes aparecem)
         const planetZoomScale = 0.85 + (0.15 * te); // 0.85 -> 1.0
         
-        // Calcula mobileScale atual (otimizado - calcula uma vez)
+        // Calcula mobileScale uma vez para este frame (otimização)
         const currentMobileScale = getCurrentMobileScale();
         
         planets.forEach((p, i) => {
@@ -1650,6 +1813,17 @@ function animate() {
         // Reset: abre, gira e volta para fila
         const elapsed = now - mobileIntro.t0;
         const radius = mobileIntro.cirandaRadius;
+        const totalResetDuration = mobileResetOpenDuration + mobileResetRotateDuration + mobileResetReturnDuration;
+        const overallT = Math.min(1, elapsed / totalResetDuration); // Progresso geral (0 a 1)
+        const overallTe = appleEase(overallT); // Easing geral para interpolação suave do GLTF
+        
+        // Calcula mobileScale uma vez para este frame (otimização)
+        const currentMobileScale = getCurrentMobileScale();
+        
+        // Inicializa posições finais da FASE 2 se ainda não existirem
+        if (!mobileIntro.rotateEndPositions) {
+          mobileIntro.rotateEndPositions = [];
+        }
         
         if (elapsed < mobileResetOpenDuration) {
           // FASE 1: Abrir (expandir o círculo) - apenas nomes desaparecem
@@ -1659,9 +1833,6 @@ function animate() {
           
           // Planetas mantêm tamanho quase normal (zoom mínimo de 0.85)
           const planetZoomScale = 1.0 - (0.15 * te); // 1.0 -> 0.85 (redução leve)
-          
-          // Calcula mobileScale atual (otimizado - calcula uma vez)
-          const currentMobileScale = getCurrentMobileScale();
         
           planets.forEach((p, i) => {
             // Usa posição inicial real para transição suave
@@ -1683,19 +1854,23 @@ function animate() {
             p.userData.zoomScale = planetZoomScale;
             const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
             p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * MOBILE_PLANET_BOOST)));
-            
-            // Nomes desabilitados no mobile
           });
+          
+          // Interpola suave da rotação do GLTF durante FASE 1
+          // Volta diretamente à posição original sem giros extras
+          if (mesh && meshInitialRotation && meshRewindStartRotation) {
+            mesh.rotation.x = THREE.MathUtils.lerp(meshRewindStartRotation.x, meshInitialRotation.x, overallTe);
+            mesh.rotation.y = THREE.MathUtils.lerp(meshRewindStartRotation.y, meshInitialRotation.y, overallTe);
+            mesh.rotation.z = THREE.MathUtils.lerp(meshRewindStartRotation.z, meshInitialRotation.z, overallTe);
+          }
         } else if (elapsed < mobileResetOpenDuration + mobileResetRotateDuration) {
           // FASE 2: Girar (rotação completa) - planetas mantêm tamanho, nomes escondidos
+          // Agora faz exatamente 2 voltas completas (4π) sincronizado com o GLTF
           const t = (elapsed - mobileResetOpenDuration) / mobileResetRotateDuration;
           const te = appleEase(t);
-          const rotationAngle = te * Math.PI * 2; // uma volta completa
+          const rotationAngle = te * Math.PI * 4; // 2 voltas completas (4π radianos)
           const expandedRadius = radius * 1.5;
           const planetZoomScale = 0.85; // mantém tamanho quase normal
-          
-          // Calcula mobileScale atual (otimizado - calcula uma vez)
-          const currentMobileScale = getCurrentMobileScale();
           
           planets.forEach((p, i) => {
             const startAngle = mobileIntro.cirandaStartAngles[i];
@@ -1705,39 +1880,69 @@ function animate() {
             const y = Math.sin(currentAngle) * expandedRadius + yOffset;
             p.position.set(x, y, 0);
             
+            // Salva posição final da rotação para usar na FASE 3 (sempre atualiza no último frame)
+            // Calcula posição final (2 voltas completas = 4π)
+            const finalAngle = startAngle + Math.PI * 4; // 2 voltas completas
+            const finalX = Math.cos(finalAngle) * expandedRadius;
+            const finalY = Math.sin(finalAngle) * expandedRadius + yOffset;
+            mobileIntro.rotateEndPositions[i] = new THREE.Vector3(finalX, finalY, 0);
+            
             // Mantém tamanho quase normal
             p.userData.zoomScale = planetZoomScale;
             const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
             p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * MOBILE_PLANET_BOOST)));
-            
-            // Nomes desabilitados no mobile
           });
+          
+          // Interpola suave da rotação do GLTF durante FASE 2
+          // Volta diretamente à posição original sem giros extras
+          if (mesh && meshInitialRotation && meshRewindStartRotation) {
+            mesh.rotation.x = THREE.MathUtils.lerp(meshRewindStartRotation.x, meshInitialRotation.x, overallTe);
+            mesh.rotation.y = THREE.MathUtils.lerp(meshRewindStartRotation.y, meshInitialRotation.y, overallTe);
+            mesh.rotation.z = THREE.MathUtils.lerp(meshRewindStartRotation.z, meshInitialRotation.z, overallTe);
+          }
         } else if (elapsed < mobileResetOpenDuration + mobileResetRotateDuration + mobileResetReturnDuration) {
           // FASE 3: Voltar para fila - planetas mantêm tamanho, nomes escondidos
           const t = (elapsed - mobileResetOpenDuration - mobileResetRotateDuration) / mobileResetReturnDuration;
           const te = appleEase(t);
           const planetZoomScale = 0.85; // mantém tamanho quase normal durante retorno
           
-          // Calcula mobileScale atual (otimizado - calcula uma vez)
-          const currentMobileScale = getCurrentMobileScale();
-          
           planets.forEach((p, i) => {
-            const currentPos = p.position.clone();
+            // Usa posição final da FASE 2 como ponto de partida (não a posição atual)
+            const startPos = mobileIntro.rotateEndPositions[i] || p.position.clone();
             const targetPos = mobileIntro.queuePositions[i];
-            p.position.lerpVectors(currentPos, targetPos, te);
+            
+            // Interpola suave da posição final da rotação para a fila
+            p.position.lerpVectors(startPos, targetPos, te);
             
             // Mantém tamanho quase normal durante retorno
             p.userData.zoomScale = planetZoomScale;
             const baseScale = p.userData.originalScale || VECTOR3_ONE_INSTANCE.clone();
             p.scale.copy(baseScale.clone().multiplyScalar(planetZoomScale * (currentMobileScale * MOBILE_PLANET_BOOST)));
-            
-            // Nomes desabilitados no mobile
           });
+          
+          // Interpola suave da rotação do GLTF durante FASE 3 (completa a interpolação)
+          // Volta diretamente à posição original sem giros extras, de forma suave
+          if (mesh && meshInitialRotation && meshRewindStartRotation) {
+            mesh.rotation.x = THREE.MathUtils.lerp(meshRewindStartRotation.x, meshInitialRotation.x, overallTe);
+            mesh.rotation.y = THREE.MathUtils.lerp(meshRewindStartRotation.y, meshInitialRotation.y, overallTe);
+            mesh.rotation.z = THREE.MathUtils.lerp(meshRewindStartRotation.z, meshInitialRotation.z, overallTe);
+          }
         } else {
           // Reset completo - volta para fila e reinicia a ciranda
           planets.forEach((p, i) => {
             p.position.copy(mobileIntro.queuePositions[i]);
           });
+          
+          // Limpa posições finais da rotação
+          mobileIntro.rotateEndPositions = [];
+          
+          // Garante que o GLTF está na posição inicial final
+          if (mesh && meshInitialRotation) {
+            mesh.rotation.x = meshInitialRotation.x;
+            mesh.rotation.y = meshInitialRotation.y;
+            mesh.rotation.z = meshInitialRotation.z;
+          }
+          
           // Reinicia a ciranda automaticamente
           mobileIntro.phase = 'ciranda';
           mobileIntro.t0 = now;
@@ -1745,7 +1950,7 @@ function animate() {
         }
       }
       } else {
-        // Estado idle: Ciranda contínua ao redor do STL
+          // Estado idle: Ciranda contínua ao redor do GLTF
         if (!panelOpen) {
           const radius = mobileIntro.cirandaRadius;
           
@@ -1776,9 +1981,7 @@ function animate() {
             if (mobileIntro.cirandaAngle < 0) mobileIntro.cirandaAngle += Math.PI * 2;
           }
           
-          // Normaliza o ângulo para o intervalo [0, 2*PI]
-          if (mobileIntro.cirandaAngle > Math.PI * 2) mobileIntro.cirandaAngle -= Math.PI * 2;
-          if (mobileIntro.cirandaAngle < 0) mobileIntro.cirandaAngle += Math.PI * 2;
+          // Normaliza o ângulo para o intervalo [0, 2*PI] (redundância removida - já normalizado acima)
           
           // Posiciona os planetas na ciranda (mesmo se pausado, mantém na posição atual)
           // Zoom in completo (1.0) quando em idle
@@ -1805,60 +2008,74 @@ function animate() {
           mobileIntro.cirandaPaused = true;
         }
       }
-  } else {
-    // Desktop: órbitas (com easing na volta do reset)
-    if (isRewinding) {
-      const t = Math.min(1, (now - rewindStartTime) / rewindDuration);
-      const e = appleEase(t);
-      
-      // Calcula posições orbitais base
-      planets.forEach((p, i) => {
-        // Interpola o ângulo, que já inclui as voltas completas necessárias
-        p.userData.angle = THREE.MathUtils.lerp(rewindData[i].startAngle, rewindData[i].endAngle, e);
+    } else {
+      // Desktop: órbitas (com easing na volta do reset)
+      if (isRewinding) {
+        const t = Math.min(1, (now - rewindStartTime) / rewindDuration);
+        const e = appleEase(t);
         
-        // Normaliza o ângulo para o intervalo [0, 2π]
-        while (p.userData.angle > Math.PI * 2) p.userData.angle -= Math.PI * 2;
-        while (p.userData.angle < 0) p.userData.angle += Math.PI * 2;
-        
-        const r = p.userData.radius;
-        const baseX = Math.cos(p.userData.angle) * r;
-        const baseY = Math.sin(p.userData.angle) * r;
-        p.position.set(baseX, baseY, 0);
-      });
-      
-      // Aplica comportamento de enxame mesmo durante o reset
-      planets.forEach((p, i) => {
-        let totalRepulsionX = 0;
-        let totalRepulsionY = 0;
-        
-        planets.forEach((other, j) => {
-          if (i === j) return;
+        // Calcula posições orbitais base
+        // Sincronizado com o GLTF: ambos usam o mesmo progresso 'e' e fazem exatamente 2 voltas
+        planets.forEach((p, i) => {
+          // Interpola o ângulo, que já inclui exatamente 2 voltas completas (4π radianos)
+          // Não normaliza durante a interpolação para manter sincronização perfeita
+          p.userData.angle = THREE.MathUtils.lerp(rewindData[i].startAngle, rewindData[i].endAngle, e);
           
-          const dx = p.position.x - other.position.x;
-          const dy = p.position.y - other.position.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
+          // Usa o ângulo diretamente (com as voltas completas incluídas) para cálculo da posição
+          // Math.cos e Math.sin funcionam corretamente com valores maiores que 2π
+          const r = p.userData.radius;
+          const baseX = Math.cos(p.userData.angle) * r;
+          const baseY = Math.sin(p.userData.angle) * r;
+          p.position.set(baseX, baseY, 0);
           
-          const minDist = (p.userData.minDistance || 0) + (other.userData.minDistance || 0);
-          
-          if (distance > 0 && distance < minDist) {
-            // Força de repulsão reduzida no desktop para órbita mais organizada
-            const repulsionForce = isMobileStackMode ? 0.15 : 0.05; // força muito menor no desktop
-            const force = (minDist - distance) / minDist;
-            const normalizedX = dx / distance;
-            const normalizedY = dy / distance;
-            
-            totalRepulsionX += normalizedX * force * repulsionForce;
-            totalRepulsionY += normalizedY * force * repulsionForce;
+          // Normaliza apenas no final para manter consistência (mas não durante a animação)
+          // Isso garante que após a animação, os valores estejam normalizados
+          if (e >= 1) {
+            // Normaliza apenas quando a animação terminar
+            const twoPi = Math.PI * 2;
+            p.userData.angle = ((p.userData.angle % twoPi) + twoPi) % twoPi;
           }
         });
         
-        // Aplica repulsão
-        p.position.x += totalRepulsionX;
-        p.position.y += totalRepulsionY;
-      });
-      
-      if (t >= 1) isRewinding = false;
-    } else {
+        // Desktop: GLTF continua girando normalmente (sem rewind)
+        // Apenas os planetas fazem o rewind, o GLTF mantém sua rotação automática contínua
+        
+        // Aplica comportamento de enxame mesmo durante o reset
+        planets.forEach((p, i) => {
+          let totalRepulsionX = 0;
+          let totalRepulsionY = 0;
+          
+          planets.forEach((other, j) => {
+            if (i === j) return;
+            
+            const dx = p.position.x - other.position.x;
+            const dy = p.position.y - other.position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            const minDist = (p.userData.minDistance || 0) + (other.userData.minDistance || 0);
+            
+            if (distance > 0 && distance < minDist) {
+              // Força de repulsão reduzida no desktop para órbita mais organizada
+              const repulsionForce = isMobileStackMode ? 0.15 : 0.05; // força muito menor no desktop
+              const force = (minDist - distance) / minDist;
+              const normalizedX = dx / distance;
+              const normalizedY = dy / distance;
+              
+              totalRepulsionX += normalizedX * force * repulsionForce;
+              totalRepulsionY += normalizedY * force * repulsionForce;
+            }
+          });
+          
+          // Aplica repulsão
+          p.position.x += totalRepulsionX;
+          p.position.y += totalRepulsionY;
+        });
+        
+        if (t >= 1) {
+          isRewinding = false;
+          // Desktop: GLTF continua girando normalmente (sem reset)
+        }
+      } else {
       // Comportamento de enxame: evita colisões entre planetas
       planets.forEach((p, i) => {
         // Calcula repulsão de outros planetas
@@ -1929,8 +2146,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check for reduced motion preference
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (prefersReducedMotion) {
-    console.log('Reduced motion preference detected, skipping 3D animations');
-    return;
+    return; // Reduced motion preference detected, skipping 3D animations
   }
   
   // Small delay to allow initial paint to complete
