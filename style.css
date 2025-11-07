@@ -64,6 +64,26 @@ h1, h2, h3, h4, h5, h6 {
   color: #ffffff;
 }
 
+/* Estilos para links nos painéis */
+.planet-panel a {
+  color: #66b3ff; /* Azul mais claro para links não visitados */
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.planet-panel a:visited {
+  color: #0088ff; /* Cor do footer para links visitados */
+}
+
+.planet-panel a:hover {
+  color: #88ccff; /* Azul claro ao passar o mouse */
+  text-decoration: underline;
+}
+
+.planet-panel a:active {
+  color: #0088ff; /* Cor do footer ao clicar */
+}
+
 /* Quando painel aberto */
 .planet-panel.open {
   transform: translate(-50%, 0);
